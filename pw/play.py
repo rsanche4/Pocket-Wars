@@ -13,7 +13,7 @@ from .rules import Game, can_hit, damage_range, flies
 from .field import Field, March
 from .cutin import CutIn
 from .menu import Menu
-from .gfx import C, SIDES, SW, SH, rect, text, text_width, wrap, blit, portrait, unit_image
+from .gfx import C, SIDES, SW, SH, rect, text, text_width, blit, portrait, unit_image
 
 TOP, BOTTOM = 13, 40
 VIEW_Y, VIEW_H = TOP, SH - TOP - BOTTOM
@@ -149,9 +149,8 @@ class Play:
             self.g.skip_march()
         self.mode, self.menu = 'cursor', None
         if not self.bot():
-            if self.g.turn == 1:
-                self.say_banner('FIRST TURN: DEPLOY ONLY', C['white'], 'NO MARCH, NO ATTACK')
-                self.open_commands()
+            if self.g.turn == 1:          # first turn is deploy only: nothing left to do, so the turn ends
+                self.end_turn()
             else:
                 self.say_banner('ATTACK!', C['red'])
                 sound.play('attack_phase')
@@ -354,28 +353,21 @@ class Play:
             items.append({'l': 'BUY / NEXT', 'f': self.open_buy})
         if g.phase == 'march':
             items.append({'l': 'SKIP MARCH', 'f': self.to_attack})
-        items += [{'l': 'END TURN', 'f': self.end_turn},
-                  {'l': 'GAME LOG', 'f': lambda: setattr(self, 'menu', self.log_menu())}]
+        items.append({'l': 'END TURN', 'f': self.end_turn})
         return items
 
-    def leave_items(self):
-        return [{'l': 'RESIGN', 'f': self.ask_resign},
-                {'l': 'QUIT TO MENU', 'f': lambda: setattr(self, 'menu', Menu('QUIT THIS BATTLE?', [
-                    {'l': 'NO, KEEP PLAYING', 'f': lambda: None}, {'l': 'YES, QUIT', 'f': self.app.main_menu}]))}]
-
-    def open_commands(self, quiet=False):
-        if not quiet:
-            sound.play('open')
-        self.menu = Menu('COMMANDS', self.turn_items() + self.leave_items() + [{'l': 'CLOSE', 'f': lambda: None}])
-
     def open_pause(self):
+        """ESC on the map: resume, your turn's actions (skip march, end turn...), resign or quit."""
         sound.play('open')
         self.mode = 'cursor'
         busy = self.script is not None or self.bot()      # CPU's turn or something animating: only pause options
         items = [{'l': 'RESUME', 'f': lambda: None}]
         if not busy:
             items += self.turn_items()
-        self.menu = Menu('PAUSED', items + self.leave_items())
+        items += [{'l': 'RESIGN', 'f': self.ask_resign},
+                  {'l': 'QUIT TO MENU', 'f': lambda: setattr(self, 'menu', Menu('QUIT THIS BATTLE?', [
+                      {'l': 'NO, KEEP PLAYING', 'f': lambda: None}, {'l': 'YES, QUIT', 'f': self.app.main_menu}]))}]
+        self.menu = Menu('PAUSED', items)
 
     def ask_resign(self):
         p = self.human_side()
@@ -384,18 +376,6 @@ class Play:
             {'l': 'NO, KEEP FIGHTING', 'f': lambda: None},
             {'l': f"YES, {SIDES[p]['name']} GIVES UP", 'f': lambda: self.resign(p) if self.g.phase != 'over' else None}],
             sub=f"{SIDES[1 - p]['name']} WILL WIN")
-
-    def log_menu(self):
-        v = self.viewer_side()
-        items = []
-        for line, side, public in self.g.log[:30]:
-            if v is None or side is None or side == v or public:
-                for k, part in enumerate(wrap((SIDES[side]['name'] + ' ' if side is not None else '') + line, 40)):
-                    items.append({'l': part, 'info': True, 'col': SIDES[side]['main'] if k == 0 and side is not None else None})
-        items.append({'l': 'BACK', 'f': lambda: None})
-        m = Menu('GAME LOG', items, wide=True)
-        m.sel = len(items) - 1
-        return m
 
     def open_buy(self):
         g, p = self.g, self.g.cur
@@ -411,7 +391,7 @@ class Play:
 
         items = [{'l': name(t), 'r': f"{UNITS[t]['cost']} SOLDIERS", 'icon': t, 'side': p, 'dis': not can(t), 'f': lambda t=t: choose(t)}
                  for t in ORDER if UNITS[t]['cost'] > 0]
-        items.append({'l': 'DONE (DEPLOY ONLY)' if g.turn == 1 else 'NEXT: MARCH', 'f': self.to_march})
+        items.append({'l': 'DONE: END TURN' if g.turn == 1 else 'NEXT: MARCH', 'f': self.to_march})
         self.menu = Menu('BUY ONE VEHICLE?', items, sub='SPEND SOLDIERS ON ONE OUTPOST')
 
     def group_from(self, i, counts):
@@ -600,7 +580,6 @@ class Play:
                     self.after_gather()
                 else:
                     sound.play('error')
-                    self.open_commands(quiet=True)
             else:
                 self.open_buy()
         elif g.phase == 'march':
@@ -608,7 +587,7 @@ class Play:
                 self.menu = self.group_menu(i)
                 sound.play('select')
             else:
-                self.open_commands()
+                sound.play('error')
         elif g.phase == 'attack':
             targets = g.targets(p, i) if g.turn > 1 and g.owner(i) == p else []
             if targets:
@@ -619,7 +598,7 @@ class Play:
                     self.cur = targets[0]
                 sound.play('select')
             else:
-                self.open_commands()
+                sound.play('error')
 
     def node_toward(self, d):
         """The outpost the cursor should jump to when pressing an arrow."""
@@ -771,10 +750,10 @@ class Play:
                 return f'ENTER: PLACE SOLDIER ({g.to_place} LEFT)' if g.can_place(p, i) else 'PLACE ON YOUR OUTPOSTS OR NEXT TO THEM'
             return 'ENTER: BUY MENU'
         if g.phase == 'march':
-            return 'ENTER: CHOOSE WHO MARCHES' if g.owner(i) == p and g.movable(i) else 'ENTER: COMMANDS (SKIP / END TURN)'
+            return 'ENTER: CHOOSE WHO MARCHES' if g.owner(i) == p and g.movable(i) else 'ESC: MENU (SKIP MARCH / END TURN)'
         if g.turn == 1:
-            return 'FIRST TURN: DEPLOY ONLY · ENTER: END TURN'
-        return 'ENTER: ATTACK FROM HERE' if g.owner(i) == p and g.targets(p, i) else 'ENTER: COMMANDS (END TURN)'
+            return 'FIRST TURN: DEPLOY ONLY · ESC: END TURN'
+        return 'ENTER: ATTACK FROM HERE' if g.owner(i) == p and g.targets(p, i) else 'ESC: MENU (END TURN)'
 
     def draw_pass(self, surf, now):
         p = self.g.cur

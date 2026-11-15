@@ -9,5 +9,5 @@
  "music": true,
  "music_volume": 5,
  "fullscreen": true,
- "map": "my-maps/my-map-1.json"
+ "map": "maps/08-blitz.json"
 }

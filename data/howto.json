@@ -99,8 +99,8 @@
    "title": "CONTROLS",
    "picture": "controls",
    "text": [
-    "ENTER on an outpost with nothing to do opens COMMANDS: end turn, skip, game log, resign, quit.",
-    "ESC backs out of menus and choices. On the map it pauses the game, even during the CPU turn."
+    "ESC backs out of menus and choices. On the map it opens the menu: skip march, end turn, resign, quit.",
+    "ESC also pauses the game during the CPU turn."
    ]
   },
   {
