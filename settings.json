@@ -1,7 +1,7 @@
 {
  "mode": "cpu",
  "cpu": "hard",
- "fog": "blackout",
+ "fog": "off",
  "timer": 0,
  "anim": "full",
  "sound": true,
@@ -9,5 +9,5 @@
  "music": true,
  "music_volume": 5,
  "fullscreen": true,
- "map": "maps/03-desert-creeks.json"
+ "map": "maps/01-boot-camp.json"
 }
