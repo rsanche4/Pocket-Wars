@@ -10,7 +10,7 @@ from . import ai, sound, learn
 from .stats import Stats
 from .data import UNITS, ORDER
 from .rules import Game, can_hit, damage_range, flies
-from .field import Field, March
+from .field import Field, March, Drop
 from .cutin import CutIn
 from .menu import Menu
 from .gfx import C, SIDES, SW, SH, rect, text, text_width, blit, portrait, unit_image
@@ -25,6 +25,19 @@ def name(t):
 
 def avg(t):
     return sum(UNITS[t]['damage']) / 2
+
+
+PHASE_NAMES = {'gather': 'GATHER', 'march': 'MARCH', 'attack': 'ATTACK', 'over': 'GAME OVER'}
+BANNER_SECONDS = 1.4
+
+
+class Landed:
+    """Something a script can wait for: every reinforcement still in the air has landed."""
+    def __init__(self, field):
+        self.field = field
+
+    def done(self, now):
+        return all(d.landed(now) for d in self.field.drops)
 
 
 class Play:
@@ -88,7 +101,37 @@ class Play:
         return seconds * self.speed
 
     def say_banner(self, title, color, sub=None):
+        """The big splash that slides across the screen (it never stops you from playing)."""
         self.banner = (title, color, sub, self.now)
+
+    def phase_color(self):
+        """The colour of what you're doing right now: gold = gather/buy, blue = march, red = attack."""
+        mode, phase = self.mode, self.g.phase
+        if mode == 'pick_buy':
+            return C['phase_gather']
+        if mode == 'pick_dest':
+            return C['phase_march']
+        if mode == 'pick_target':
+            return C['phase_attack']
+        return C.get('phase_' + phase, C['highlight'])
+
+    def turn_banner(self):
+        g, p = self.g, self.g.cur
+        who = f"{SIDES[p]['name']} TURN {g.turn}"
+        if self.bot(p):
+            self.say_banner(who, SIDES[p]['main'])
+        else:
+            n = g.to_place
+            self.say_banner('REINFORCEMENTS', C['phase_gather'], f"{who} · PLACE {n} SOLDIER{'' if n == 1 else 'S'}")
+        sound.play('turn_' + SIDES[p]['name'].lower())
+
+    def drop(self, i):
+        """Show the soldier just placed at outpost i parachuting in (it lands with the 'place' sound)."""
+        unit = self.g.units[i][-1]
+        if self.speed and self.seen_by(i):
+            self.field.drops.append(Drop(i, unit, .65 if self.speed == 1 else .35, self.now))
+        elif self.seen_by(i):
+            sound.play('place')
 
     def set_mood(self, p, mood, seconds=2.4):
         self.moods[p] = (mood, self.now + seconds)
@@ -119,8 +162,7 @@ class Play:
         if g.fog and not any(self.bots):
             self.pass_screen = True
         else:
-            self.say_banner(f"{SIDES[p]['name']} TURN {g.turn}", SIDES[p]['main'])
-            sound.play('turn_' + SIDES[p]['name'].lower())
+            self.turn_banner()
         if self.bot(p):
             self.run(self.cpu_turn())
         elif not self.pass_screen:
@@ -133,7 +175,12 @@ class Play:
 
     def after_gather(self):
         if self.g.phase == 'gather' and self.g.to_place <= 0 and not self.bot():
-            self.open_buy()
+            self.run(self.buy_step())
+
+    def buy_step(self):
+        yield Landed(self.field)             # let the last soldiers touch down first
+        self.say_banner('BUILD A VEHICLE?', C['phase_gather'], 'OPTIONAL · ONE PER TURN')
+        self.open_buy()
 
     def to_march(self):
         if self.g.turn == 1:
@@ -141,7 +188,7 @@ class Play:
             return
         self.g.begin_march()
         self.mode, self.menu = 'cursor', None
-        self.say_banner('MARCH', C['highlight'], 'ONE GROUP, ONE MOVE')
+        self.say_banner('MARCH', C['phase_march'], 'STEP 2 OF 3 · ONE GROUP, ONE MOVE')
         sound.play('march_phase')
 
     def to_attack(self):
@@ -152,7 +199,7 @@ class Play:
             if self.g.turn == 1:          # first turn is deploy only: nothing left to do, so the turn ends
                 self.end_turn()
             else:
-                self.say_banner('ATTACK!', C['red'])
+                self.say_banner('ATTACK!', C['phase_attack'], 'STEP 3 OF 3 · PICK WHO FIRES')
                 sound.play('attack_phase')
 
     def game_over(self):
@@ -211,6 +258,10 @@ class Play:
             if self.script is not script:     # a new script took over while this one ran
                 continue
             self.wait = now + y if isinstance(y, (int, float)) else y
+        for d in self.field.drops:
+            if not d.heard and d.landed(now):
+                d.heard = True
+                sound.play('place')
         g = self.g
         if g.phase == 'over' and not self.ended and not self.cutin:
             self.game_over()
@@ -237,6 +288,8 @@ class Play:
             result = yield from self.perform(action)
             if self.g.phase == 'over':
                 return
+            if action[0] == 'end_gather':
+                yield Landed(self.field)          # its reinforcements touch down before it moves on
             if action[0] in ('march', 'skip_march', 'end_gather'):
                 yield self.pause(.25 if action[0] != 'end_gather' else .2)
         self.end_turn()
@@ -247,8 +300,7 @@ class Play:
         if kind == 'place':
             g.place(action[1])
             self.look(action[1])
-            if self.seen_by(action[1]):
-                sound.play('place')
+            self.drop(action[1])
             yield self.pause(.16)
         elif kind == 'buy':
             g.buy(*action[1:])
@@ -334,6 +386,7 @@ class Play:
         if f.result == 'over' or self.g.phase == 'over':
             return
         if f.result == 'cleared':
+            self.mode = 'cursor'                  # nothing left to target there
             self.menu = self.move_in_menu(a, b)
         elif self.g.units[a] and self.g.units[b] and b in self.g.targets(p, a):
             self.menu = self.fight_menu(a, b)
@@ -509,8 +562,7 @@ class Play:
             if k == 'e':
                 self.pass_screen = False
                 self.viewer = g.cur
-                self.say_banner(f"{SIDES[g.cur]['name']} TURN {g.turn}", SIDES[g.cur]['main'])
-                sound.play('turn_' + SIDES[g.cur]['name'].lower())
+                self.turn_banner()
                 self.after_gather()
             return
         if self.menu:
@@ -588,7 +640,7 @@ class Play:
             if g.to_place > 0:
                 if g.can_place(p, i):
                     g.place(i)
-                    sound.play('place')
+                    self.drop(i)
                     self.after_gather()
                 else:
                     sound.play('error')
@@ -604,10 +656,9 @@ class Play:
             targets = g.targets(p, i) if g.turn > 1 and g.owner(i) == p else []
             if targets:
                 self.mode, self.src = 'pick_target', i
+                self.cur = targets[0]                  # the cursor jumps onto the enemy (as a red target)
                 if len(targets) == 1:
                     self.menu = self.fight_menu(i, targets[0])
-                else:
-                    self.cur = targets[0]
                 sound.play('select')
             else:
                 sound.play('error')
@@ -666,23 +717,26 @@ class Play:
         surf.fill(C['background'])
         v = self.viewer_side()
         vis = g.sight(v) if v is not None else None
+        cam = self.cam()
+        mine = not self.script and not self.bot() and not self.pass_screen and g.phase != 'over'   # your move
         show_cursor = self.cur if not self.script and not self.bot() else None
-        self.field.draw(surf, self.cam(), now, vis, g.blackout, self.highlights(), show_cursor)
+        style = 'normal'
+        if self.mode == 'pick_target' and mine:
+            style = 'target' if self.cur in g.targets(g.cur, self.src) else 'no_target'
+        self.field.draw(surf, cam, now, vis, g.blackout, self.highlights(), show_cursor, self.phase_color(), style)
+        if mine and self.mode == 'pick_dest':                  # the arrow from the marching group to the cursor
+            dests = g.destinations(g.cur, self.src, self.group_from(self.src, self.counts))
+            if self.cur in dests:
+                self.field.draw_route(surf, cam, dests[self.cur], C['phase_march'])
+        if mine and self.mode == 'cursor' and not self.menu and g.phase == 'gather' and g.to_place > 0                 and g.can_place(g.cur, self.cur):                # the next reinforcement, waiting to drop here
+            self.field.draw_ghost(surf, cam, self.cur, g.cur, now)
         self.draw_top(surf, now, vis)
         self.draw_info(surf, vis)
         if self.banner:
-            title, col, sub, t0 = self.banner
-            t = now - t0
-            if t > 1.3:
+            if now - self.banner[3] > BANNER_SECONDS:
                 self.banner = None
             else:
-                y = round(VIEW_Y + VIEW_H / 2 - 14 + ((.15 - t) * 200 if t < .15 else 0))
-                rect(surf, 0, y, SW, 24, pygame.Color(10, 12, 7, 217))
-                rect(surf, 0, y, SW, 1, col)
-                rect(surf, 0, y + 23, SW, 1, col)
-                text(surf, title, SW / 2, y + 5, col, 1, 'c')
-                if sub:
-                    text(surf, sub, SW / 2, y + 15, C['white'], 1, 'c')
+                self.draw_banner(surf, now)
         if self.menu:
             self.menu.draw(surf, VIEW_Y, VIEW_H, SIDES[self.menu.win if self.menu.win is not None else 0])
             if self.menu.win is not None:
@@ -697,14 +751,43 @@ class Play:
         if self.cutin:
             self.cutin.draw(surf, now)
 
+    def draw_banner(self, surf, now):
+        """The phase splash: a dark band opens, big letters slide in from the right, wait, and slide out left.
+        With a menu open it sits at the top of the view so it doesn't hide the menu."""
+        title, col, sub, t0 = self.banner
+        t = now - t0
+        h = 38 if sub else 29
+        band = h * min(1, t / .1, max(0, (BANNER_SECONDS - t) / .12))      # opens, then closes
+        mid = VIEW_Y + 4 + h / 2 if self.menu else VIEW_Y + VIEW_H / 2
+        y0 = round(mid - band / 2)
+        if band < 1:
+            return
+        rect(surf, 0, y0, SW, round(band), pygame.Color(10, 12, 7, 225))
+        rect(surf, 0, y0, SW, 2, col)
+        rect(surf, 0, y0 + round(band) - 2, SW, 2, col)
+        ease = lambda k: 1 - (1 - max(0, min(1, k))) ** 3
+        x = SW / 2 + (1 - ease(t / .22)) * SW - ease((t - (BANNER_SECONDS - .3)) / .3) * SW
+        top = round(mid - h / 2)
+        surf.set_clip(pygame.Rect(0, y0 + 2, SW, max(0, round(band) - 4)))
+        text(surf, title, x, top + 5, col, 3, 'c', C['ink'])
+        if sub:
+            text(surf, sub, x + (1 - ease((t - .06) / .22)) * SW * .5, top + 28, C['white'], 1, 'c')
+        surf.set_clip(None)
+
     def draw_top(self, surf, now, vis):
         g, p = self.g, self.g.cur
         rect(surf, 0, 0, SW, TOP, C['olive'])
         rect(surf, 0, TOP - 1, SW, 1, C['olive_dark'])
         blit(surf, unit_image('icons', 'soldier', p), 3, 1)
         text(surf, SIDES[p]['name'], 14, 3, SIDES[p]['main'], 1, 'l', C['ink'])
-        phase = {'gather': 'GATHER', 'march': 'MARCH', 'attack': 'ATTACK', 'over': 'GAME OVER'}[g.phase]
-        text(surf, f"T{g.turn} {phase}{' · PLACE ' + str(g.to_place) if g.phase == 'gather' and g.to_place > 0 else ''}", 56, 3, C['white'])
+        text(surf, f'T{g.turn}', 56, 3, C['white'])
+        phase = PHASE_NAMES[g.phase]                          # the phase as a tag in its colour
+        x = 56 + text_width(f'T{g.turn}') + 5
+        col = C['grey'] if g.phase == 'over' else C['phase_' + g.phase]
+        rect(surf, x - 2, 1, text_width(phase) + 4, TOP - 3, col)
+        text(surf, phase, x, 3, C['ink'])
+        if g.phase == 'gather' and g.to_place > 0:
+            text(surf, f'PLACE {g.to_place}', x + text_width(phase) + 6, 3, C['white'])
         if self.settings['timer'] and not self.bot() and g.phase != 'over':
             left = max(0, math.ceil(self.time_left))
             rect(surf, SW - 34, 1, 33, 11, C['red'] if left <= 10 and int(now / .26) % 2 else C['ink'])

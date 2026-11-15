@@ -4,7 +4,7 @@ import math
 import pygame
 
 from .data import ORDER, UNITS
-from .gfx import C, SIDES, SW, SH, rect, ellipse, ellipse_ring, blit, digits, hp_bar, text, unit_image, building_image
+from .gfx import C, SIDES, SW, SH, rect, ellipse, ellipse_ring, blit, digits, hp_bar, text, unit_image, building_image, image, has_image
 from .world import build_world, outpost_kinds
 
 
@@ -40,19 +40,37 @@ class March:
         return (a.x + (b.x - a.x) * t) * field.k, (a.y + (b.y - a.y) * t) * field.k
 
 
+class Drop:
+    """A reinforcement parachuting onto outpost i. Its unit is hidden from the outpost until it lands."""
+    PUFF = .3
+
+    def __init__(self, i, unit, seconds, now):
+        self.i, self.unit, self.start, self.length = i, unit, now, seconds
+        self.heard = False          # the landing sound has played
+
+    def landed(self, now):
+        return now - self.start >= self.length
+
+    def gone(self, now):            # after landing, a short puff of dust
+        return now - self.start >= self.length + self.PUFF
+
+
 class Field:
     def __init__(self, game, k):
         self.g, self.k = game, k
         self.world = build_world(game.map, k)
         self.kinds = outpost_kinds(game.map)
         self.march = None              # a March being shown (its units are hidden from their outpost meanwhile)
+        self.drops = []                # Drops (soldiers parachuting in) being shown
 
     def screen_pos(self, i, cam):
         n = self.g.map.nodes[i]
         return round(n.x * self.k - cam[0]), round(n.y * self.k - cam[1])
 
-    def draw(self, surf, cam, now, vis=None, blackout=False, highlight=(), cursor=None):
-        """vis = outposts the viewer can see (None = everything). blackout hides the unseen ground too."""
+    def draw(self, surf, cam, now, vis=None, blackout=False, highlight=(), cursor=None, ring=None, cursor_style='normal'):
+        """vis = outposts the viewer can see (None = everything). blackout hides the unseen ground too.
+        ring = colour of the highlight rings (the current phase's colour). cursor_style: 'normal', 'target' (over an
+        enemy you can attack) or 'no_target' (choosing a target, but not over one)."""
         g, nodes = self.g, self.g.map.nodes
         blink = int(now / .26) % 2
         surf.blit(self.world, (-cam[0], -cam[1]))
@@ -71,7 +89,8 @@ class Field:
             ellipse(surf, x, y + 1, 14, 5, C['neutral_pad_dark'] if side is None else SIDES[side]['pad'])
             ellipse(surf, x, y, 14, 5, C['neutral_pad'] if side is None else SIDES[side]['light'])
             if i in highlight:
-                ellipse_ring(surf, x, y, 17, 7, C['highlight'], 0 if blink else 2)
+                ellipse_ring(surf, x, y, 17, 7, ring or C['highlight'], 0 if blink else 2)
+                ellipse_ring(surf, x, y, 18, 8, ring or C['highlight'], 2 if blink else 0)
             b = building_image(kind, side)
             blit(surf, b, x - b.get_width() // 2, y - b.get_height() + 2, alpha=255 if seen or kind == 'hq' else 115)
             if side is not None and kind != 'hq':          # a little flag
@@ -93,10 +112,17 @@ class Field:
                 ellipse(surf, x - 6, y - 3, 6, 4, pygame.Color('#dfe2e6'))
                 ellipse(surf, x + 6, y - 3, 6, 4, pygame.Color('#f4f5f7'))
                 text(surf, '?', x - 2, y - 9, pygame.Color('#7d848c'))
-            if i == cursor:
+            if i == cursor and cursor_style == 'normal':
                 self.draw_cursor(surf, x, y, blink)
         if self.march:
             self.draw_march(surf, cam, now)
+        self.drops = [d for d in self.drops if not d.gone(now)]
+        for d in self.drops:
+            if vis is None or d.i in vis:
+                self.draw_drop(surf, cam, now, d)
+        if cursor is not None and cursor_style != 'normal':
+            x, y = self.screen_pos(cursor, cam)
+            self.draw_target(surf, x, y, now, cursor_style == 'target')
 
     def draw_blackout(self, surf, cam, vis):
         dark = blackout_layer().copy()
@@ -112,7 +138,7 @@ class Field:
 
     def draw_units(self, surf, i, x, y, side, now):
         g = self.g
-        hidden = self.march.units if self.march else []
+        hidden = (self.march.units if self.march else []) + [d.unit for d in self.drops if not d.landed(now)]
         units = [u for u in g.units[i] if u.type != 'hq' and u not in hidden]
         groups = [[u for u in units if u.type == t] for t in ORDER]
         ground = [grp for grp in groups if grp and grp[0].type != 'helicopter']
@@ -165,3 +191,88 @@ class Field:
         if len(m.units) > 1:
             rect(surf, x + w / 2 - 2, y - h, 9, 7, C['ink'])
             digits(surf, len(m.units), round(x + w / 2), round(y - h + 1), C['white'])
+
+    # ---------- phase feedback: target cursor, march arrow, reinforcements ----------
+    def draw_target(self, surf, x, y, now, ok):
+        """The attack cursor: a red target over the enemy outpost. Uses assets/ui/cursor_target.png if it exists
+        (drawn centred on the outpost); ok = False (not over something you can attack) shows it faded."""
+        cy = y - 8
+        if has_image('ui/cursor_target.png'):
+            img = image('ui/cursor_target.png')
+            blit(surf, img, x - img.get_width() / 2, cy - img.get_height() / 2, alpha=255 if ok else 110)
+            return
+        col = C['phase_attack'] if ok else C['grey']
+        r = 14 + (int(now / .26) % 2 if ok else 0)
+        for rr, c in ((r + 1, C['ink']), (r, col), (r - 1, col), (r - 2, C['ink'])):
+            pygame.draw.circle(surf, c, (x, cy), rr, 1)
+        pygame.draw.circle(surf, C['ink'], (x, cy), 4)
+        pygame.draw.circle(surf, col, (x, cy), 3)
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):          # four ticks across the ring
+            a = (x + dx * (r - 5), cy + dy * (r - 5))
+            b = (x + dx * (r + 5), cy + dy * (r + 5))
+            pygame.draw.line(surf, C['ink'], a, b, 4)
+            pygame.draw.line(surf, col, a, b, 2)
+
+    def draw_route(self, surf, cam, path, color):
+        """An Advance Wars style arrow along a march path, with an arrowhead at the destination."""
+        pts = [self.screen_pos(i, cam) for i in path]
+        if len(pts) < 2:
+            return
+        (ax, ay), (bx, by) = pts[-2], pts[-1]
+        d = math.hypot(bx - ax, by - ay) or 1
+        ux, uy = (bx - ax) / d, (by - ay) / d
+        tip = (bx - ux * 3, by - uy * 3)                 # the tip stops just short of the outpost's middle
+        base = (tip[0] - ux * 9, tip[1] - uy * 9)
+        line = pts[:-1] + [base]
+        for width, c in ((8, C['ink']), (4, color)):
+            pygame.draw.lines(surf, c, False, line, width)
+            for pt in line:
+                pygame.draw.circle(surf, c, pt, width // 2)
+        for grow, c in ((2, C['ink']), (0, color)):
+            t = (tip[0] + ux * grow, tip[1] + uy * grow)
+            b = (base[0] - ux * grow, base[1] - uy * grow)
+            s = 6 + grow
+            pygame.draw.polygon(surf, c, [t, (b[0] - uy * s, b[1] + ux * s), (b[0] + uy * s, b[1] - ux * s)])
+
+    def draw_ghost(self, surf, cam, i, side, now):
+        """A see-through soldier on a parachute hovering over outpost i: where the next reinforcement will land."""
+        x, y = self.screen_pos(i, cam)
+        kind = self.kinds[i]
+        above = building_image(kind, self.g.owner(i)).get_height() + (8 if kind == 'hq' else 1)   # clear of the roof (and HQ bar)
+        self.draw_chute(surf, x, y + 2 - above + round(math.sin(now * 4) * 2), side, 1, alpha=160)
+
+    def draw_drop(self, surf, cam, now, d):
+        """A soldier parachuting down from the top of the screen onto its outpost, then a puff of dust."""
+        x, y = self.screen_pos(d.i, cam)
+        t = (now - d.start) / d.length
+        land = y + 11                                      # where the soldiers' feet stand
+        if t < 1:
+            fall = 1 - (1 - t) ** 1.7                      # fast at first, gentle at the end
+            yy = -4 + (land + 4) * fall
+            sway = round(math.sin(t * 8 + d.i) * 4 * (1 - t))
+            self.draw_chute(surf, x + sway, yy, d.unit.side, 1 if t < .8 else 1 - (t - .8) / .2 * .8)
+        else:
+            k = (now - d.start - d.length) / Drop.PUFF
+            a = max(0, round(230 * (1 - k)))
+            for dx in (-6, 0, 6):
+                ellipse(surf, x + dx * (1 + k * 1.5), land - 1 - k * 4, round(3 + k * 3), round(2 + k * 2), pygame.Color(196, 170, 128, a))
+
+    def draw_chute(self, surf, x, y, side, open_=1.0, alpha=255):
+        """A soldier hanging under a parachute; (x, y) = the soldier's feet. open_ < 1 folds the canopy (landing)."""
+        img = unit_image('map', 'soldier', side)
+        w, h = img.get_size()
+        layer = pygame.Surface((32, 44), pygame.SRCALPHA)
+        cx, feet = 16, 43
+        head = feet - h
+        cw, ch = max(1, round(11 * open_)), max(2, round(7 * open_))
+        top = head - 6 - ch
+        pygame.draw.ellipse(layer, C['ink'], (cx - cw - 1, top - 1, cw * 2 + 2, ch * 2 + 2))
+        pygame.draw.ellipse(layer, C['white'], (cx - cw, top, cw * 2, ch * 2))
+        for k in (-1, 1):                                  # stripes in the side's colour
+            pygame.draw.line(layer, SIDES[side]['main'], (cx + k * cw // 2, top + 1), (cx + k * cw // 2, top + ch), 2)
+        layer.fill((0, 0, 0, 0), (0, top + ch, 32, ch + 2))           # keep only the top half: a dome
+        pygame.draw.line(layer, C['ink'], (cx - cw - 1, top + ch - 1), (cx + cw, top + ch - 1))
+        for sx in (cx - cw, cx + cw - 1):                  # the cords
+            pygame.draw.line(layer, C['ink'], (sx, top + ch), (cx, head + 3))
+        layer.blit(img, (cx - w // 2, head))
+        blit(surf, layer, x - cx, y - feet, alpha)
