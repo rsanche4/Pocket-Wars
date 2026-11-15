@@ -144,7 +144,7 @@ class Stats(Pages):
 
     # ------------------------------------------------------------------ charts
     def draw_chart(self, surf, page, t):
-        title, key, caption = page
+        _, key, caption = page          # (the title is drawn by the page frame)
         g = self.g
         turns = [turn for turn, _ in g.history]
         series = [[s[p][key] for _, s in g.history] for p in (0, 1)]

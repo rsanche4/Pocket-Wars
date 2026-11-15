@@ -14,7 +14,6 @@ py tools/make_ui.py target arrow_head)
   arrow_head.png        the arrowhead, pointing RIGHT; its right edge is the tip. The game turns it to face the way.
   arrow_start.png       the dot where the arrow starts (centred on the outpost the group leaves).
 """
-import math
 import os
 import sys
 

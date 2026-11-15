@@ -31,6 +31,12 @@ PHASE_NAMES = {'gather': 'GATHER', 'march': 'MARCH', 'attack': 'ATTACK', 'over':
 BANNER_SECONDS = 1.4
 
 
+def pausing(menu):
+    """Mark a menu as one that pauses the battle while it's open (PAUSED and its RESIGN / QUIT questions)."""
+    menu.pauses = True
+    return menu
+
+
 class Landed:
     """Something a script can wait for: every reinforcement still in the air has landed."""
     def __init__(self, field):
@@ -62,6 +68,7 @@ class Play:
         self.time_left = 0
         self.ended = False
         self.memory = None
+        self.paused_total, self.paused_at = 0, None   # the battle's clock stops while the PAUSED menu is open
         if mode == 'cpu' and settings['cpu'] == 'hard':      # Hard learns from games against you (learn.py)
             you = self.human_side()
             self.memory = learn.load()
@@ -241,7 +248,19 @@ class Play:
     def run(self, script):
         self.script, self.wait = script, None
 
+    def battle_time(self, now):
+        """The real clock minus the time spent paused (frozen while paused)."""
+        return (self.paused_at if self.paused_at is not None else now) - self.paused_total
+
     def update(self, now, dt):
+        if self.menu is not None and getattr(self.menu, 'pauses', False):
+            if self.paused_at is None:
+                self.paused_at = now
+            return                                # nothing moves: CPU, marches, battle scenes, the turn timer
+        if self.paused_at is not None:
+            self.paused_total += now - self.paused_at
+            self.paused_at = None
+        now = self.battle_time(now)
         self.now = now
         while self.script:
             w = self.wait
@@ -402,7 +421,7 @@ class Play:
 
     # ------------------------------------------------------------------ menus
     def turn_items(self):
-        """The things you can do with your turn right now (skip ahead, end it, read the log)."""
+        """The things you can do with your turn right now (buy, skip the march, end the turn)."""
         g = self.g
         items = []
         if g.phase == 'gather' and g.to_place == 0:
@@ -421,17 +440,17 @@ class Play:
         if not busy:
             items += self.turn_items()
         items += [{'l': 'RESIGN', 'f': self.ask_resign},
-                  {'l': 'QUIT TO MENU', 'f': lambda: setattr(self, 'menu', Menu('QUIT THIS BATTLE?', [
-                      {'l': 'NO, KEEP PLAYING', 'f': lambda: None}, {'l': 'YES, QUIT', 'f': self.app.main_menu}]))}]
-        self.menu = Menu('PAUSED', items)
+                  {'l': 'QUIT TO MENU', 'f': lambda: setattr(self, 'menu', pausing(Menu('QUIT THIS BATTLE?', [
+                      {'l': 'NO, KEEP PLAYING', 'f': lambda: None}, {'l': 'YES, QUIT', 'f': self.app.main_menu}])))}]
+        self.menu = pausing(Menu('PAUSED', items))
 
     def ask_resign(self):
         p = self.human_side()
         self.mode = 'cursor'
-        self.menu = Menu(f"{SIDES[p]['name']}: RESIGN?", [
+        self.menu = pausing(Menu(f"{SIDES[p]['name']}: RESIGN?", [
             {'l': 'NO, KEEP FIGHTING', 'f': lambda: None},
             {'l': f"YES, {SIDES[p]['name']} GIVES UP", 'f': lambda: self.resign(p) if self.g.phase != 'over' else None}],
-            sub=f"{SIDES[1 - p]['name']} WILL WIN")
+            sub=f"{SIDES[1 - p]['name']} WILL WIN"))
 
     def open_buy(self):
         g, p = self.g, self.g.cur
@@ -718,6 +737,7 @@ class Play:
         return round(self.camera[0]), round(self.camera[1]) - VIEW_Y
 
     def draw(self, surf, now):
+        now = self.battle_time(now)                  # animations freeze while paused
         g = self.g
         surf.fill(C['background'])
         v = self.viewer_side()
@@ -761,7 +781,7 @@ class Play:
         With a menu open it sits at the top of the view so it doesn't hide the menu."""
         title, col, sub, t0 = self.banner
         t = now - t0
-        h = 38 if sub else 29
+        h = 32 if sub else 24
         band = h * min(1, t / .1, max(0, (BANNER_SECONDS - t) / .12))      # opens, then closes
         mid = VIEW_Y + 4 + h / 2 if self.menu else VIEW_Y + VIEW_H / 2
         y0 = round(mid - band / 2)
@@ -774,9 +794,9 @@ class Play:
         x = SW / 2 + (1 - ease(t / .22)) * SW - ease((t - (BANNER_SECONDS - .3)) / .3) * SW
         top = round(mid - h / 2)
         surf.set_clip(pygame.Rect(0, y0 + 2, SW, max(0, round(band) - 4)))
-        text(surf, title, x, top + 5, col, 3, 'c', C['ink'])
+        text(surf, title, x, top + 5, col, 2, 'c', C['ink'])
         if sub:
-            text(surf, sub, x + (1 - ease((t - .06) / .22)) * SW * .5, top + 28, C['white'], 1, 'c')
+            text(surf, sub, x + (1 - ease((t - .06) / .22)) * SW * .5, top + 22, C['white'], 1, 'c')
         surf.set_clip(None)
 
     def draw_top(self, surf, now, vis):

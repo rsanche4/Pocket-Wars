@@ -10,7 +10,7 @@ import math
 import random
 from dataclasses import dataclass
 
-from .data import UNITS, ORDER
+from .data import UNITS
 
 
 def js_round(x):
@@ -78,7 +78,6 @@ class Game:
         self.used = set()               # ids of units that attacked this turn
         self.winner = None
         self.resigned = False
-        self.log = []                   # newest first: (text, side or None, public)
         self.next_id = 1
         self.totals = [new_totals(), new_totals()]     # running counts for the end-of-battle stats
         self.history = []               # a snapshot of both sides after every turn (see snapshot())
@@ -86,7 +85,6 @@ class Game:
             if self.hq[p] >= 0:
                 self.add(self.hq[p], p, 'hq')
                 self.add(self.hq[p], p, 'halftrack')
-        self.say(f'Battle for {m.name}. Destroy the enemy HQ to win.')
         self.snapshot()
         self.start_turn()
 
@@ -187,10 +185,6 @@ class Game:
                 any(x.id not in self.used and any(can_hit(x.type, y.type) for y in self.units[b]) for x in self.units[a])]
 
     # ---------- changing the board ----------
-    def say(self, text, side=None, public=False):
-        self.log.insert(0, (text, side, public))
-        del self.log[60:]
-
     def add(self, i, p, t):
         self.units[i].append(Unit(self.next_id, p, t, UNITS[t]['hp']))
         self.next_id += 1
@@ -207,7 +201,6 @@ class Game:
         self.phase, self.bought, self.used = 'gather', False, set()
         self.to_place = 1 + barracks
         self.update_seen()
-        self.say(f"gets {self.to_place} soldier{'' if self.to_place == 1 else 's'}{f' (+{barracks} from barracks)' if barracks else ''}.", p)
 
     def place(self, i):
         self.note_capture(i, self.cur)
@@ -229,7 +222,6 @@ class Game:
         self.bought = True
         self.totals[self.cur]['built'] += 1
         self.totals[self.cur]['by_build'][t] = self.totals[self.cur]['by_build'].get(t, 0) + 1
-        self.say(f"builds a {UNITS[t]['name'].lower()}.", self.cur)
 
     def begin_march(self):
         self.phase = 'march'
@@ -239,7 +231,6 @@ class Game:
         self.totals[self.cur]['marched'] += len(path) - 1
         moving = self.take(src, ids)
         self.units[path[-1]] += moving
-        self.say(f'marches {describe(moving)}.', self.cur)
         self.phase = 'attack'
         return moving
 
@@ -257,10 +248,6 @@ class Game:
         y.hp -= dealt
         x.hp -= taken
         self.count_fight(x, y, min(dealt, hy), min(taken, hx))
-        nx, ny = UNITS[x.type]['name'], UNITS[y.type]['name']
-        self.say(f"{nx} hits {'the HQ' if y.type == 'hq' else 'the ' + ny.lower()} for {dealt}"
-                 f"{f', takes {taken}' if back else ' (no return fire)'}.{f' {ny} destroyed!' if y.hp <= 0 else ''}"
-                 f"{f' Our {nx.lower()} lost.' if x.hp <= 0 else ''}", self.cur, True)
         self.units[a] = [u for u in self.units[a] if u.hp > 0]
         self.units[b] = [u for u in self.units[b] if u.hp > 0]
         result = 'ok'
@@ -295,7 +282,6 @@ class Game:
         self.note_capture(b, self.cur)
         moving = self.take(a, ids)
         self.units[b] += moving
-        self.say(f'moves {describe(moving)} in.', self.cur, True)
         return moving
 
     def end_turn(self):
@@ -306,14 +292,8 @@ class Game:
     def end_game(self, winner, resigned=False):
         self.phase, self.winner, self.resigned = 'over', winner, resigned
         self.snapshot()
-        if resigned:
-            self.say('resigned.', 1 - winner, True)
-        else:
-            self.say('destroyed the enemy HQ!', winner, True)
 
     def time_up(self):
-        lost = self.to_place
-        self.say(f"ran out of time!{f' {lost} soldier' + ('s' if lost > 1 else '') + ' lost.' if lost else ''}", self.cur, True)
         self.to_place = 0
         self.end_turn()
 
@@ -332,11 +312,3 @@ def new_totals():
     return {'recruited': 0, 'built': 0, 'attacks': 0, 'damage': 0, 'hq_damage': 0, 'kills': 0, 'lost': 0,
             'biggest': 0, 'captured': 0, 'marched': 0, 'by_type': {}, 'by_build': {}}
 
-
-def describe(units):
-    parts = []
-    for t in ORDER:
-        n = sum(1 for u in units if u.type == t)
-        if n:
-            parts.append(f"{n} {UNITS[t]['name'].lower()}{'s' if n > 1 else ''}")
-    return ', '.join(parts)
