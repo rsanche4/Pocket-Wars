@@ -464,27 +464,41 @@ class Play:
         return m
 
     def move_in_menu(self, a, b, counts=None):
+        """Pick who moves in. Units are grouped by type, health and whether they already fired this turn,
+        so you choose e.g. the healthy soldiers and leave the hurt ones behind."""
         g = self.g
-        can = g.move_in_choices(a, b)
-        if counts is None:
-            counts = {t: 0 for t in ORDER}
-            soldiers = sum(1 for u in can if u.type == 'soldier')
-            if soldiers:
-                counts['soldier'] = math.ceil(soldiers / 2)
-            else:
-                counts[can[0].type] = 1
+        groups = {}
+        for u in g.move_in_choices(a, b):
+            groups.setdefault((u.type, u.hp, u.id in g.used), []).append(u)
+        keys = sorted(groups, key=lambda k: (ORDER.index(k[0]), k[2], -k[1]))     # by type, ready first, healthiest first
+        if counts is None:      # start with half the soldiers (or one unit), ready and healthy ones first
+            counts = {k: 0 for k in keys}
+            pool = [k for k in keys if k[0] == 'soldier'] or keys[:1]
+            want = math.ceil(sum(len(groups[k]) for k in pool) / 2) if pool[0][0] == 'soldier' else 1
+            for k in pool:
+                counts[k] = min(want, len(groups[k]))
+                want -= counts[k]
 
         def go():
-            ids = [u.id for t in ORDER for u in [u for u in can if u.type == t][:counts[t]]]
+            ids = [u.id for k in keys for u in groups[k][:counts[k]]]
             if not ids:
                 sound.play('error')
                 self.menu = self.move_in_menu(a, b, counts)
                 return
             self.run(self.human_move_in(a, b, ids))
 
-        items = [self.counter(t, counts, sum(1 for u in can if u.type == t)) for t in ORDER if any(u.type == t for u in can)]
+        def row(k):
+            t, hp, fired = k
+            most = len(groups[k])
+
+            def adj(d):
+                counts[k] = max(0, min(most, counts[k] + d))
+            return {'l': f"{name(t)} {hp}HP{' (FIRED)' if fired else ''}", 'icon': t, 'side': g.cur,
+                    'val': lambda: f'◀ {counts[k]}/{most} ▶', 'adj': adj}
+
+        items = [row(k) for k in keys]
         items += [{'l': 'MOVE IN', 'f': go}, {'l': 'STAY PUT', 'f': lambda: setattr(self, 'mode', 'cursor')}]
-        return Menu('OUTPOST CLEARED!', items, sub='MOVE IN FOR FREE?')
+        return Menu('OUTPOST CLEARED!', items, sub='MOVE IN FOR FREE?  ◀ ▶ HOW MANY', wide=True)
 
     # ------------------------------------------------------------------ keys
     def key(self, k):
