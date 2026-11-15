@@ -1,0 +1,12 @@
+{
+ "name": "Blitz",
+ "theme": "desert",
+ "blurb": "Four barracks packed around a moated centre. Fast and bloody.",
+ "art": [
+  "o-o-G-o-o",
+  "| ~ | ~ |",
+  "H-G~o~G-h",
+  "| ~ | ~ |",
+  "o-o-G-o-o"
+ ]
+}

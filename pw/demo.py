@@ -3,7 +3,7 @@ import math
 import random
 import pygame
 
-from .data import ORDER, UNITS, parse_map
+from .data import ORDER, UNITS, parse_map, map_problems
 from .rules import Game, flies
 from .field import Field, March
 from .gfx import THEMES, C, rect, ellipse, text
@@ -133,12 +133,12 @@ class LiveBattle:
 
 
 def big_maps(maps):
-    """Built-in maps large enough to fill the title screen."""
-    return [m for m in maps if not m.custom and m.w * .46 >= 380 and m.h * .46 >= 280]
+    """Playable maps large enough to fill the title screen."""
+    return [m for m in maps if m.w * .46 >= 380 and m.h * .46 >= 280 and not map_problems(m)]
 
 
 def title_battle(maps, now, avoid=None):
-    pool = [m for m in big_maps(maps) if m is not avoid] or [m for m in maps if not m.custom]
+    pool = [m for m in big_maps(maps) if m is not avoid] or [m for m in maps if not map_problems(m)] or maps
     m = random.choice(pool)
     return LiveBattle(m, max(.42, 380 / m.w, 280 / m.h), now)
 

@@ -44,7 +44,7 @@ class App:
     def choose_map(self, mode):
         from pw.menus import ChooseMap
         S['mode'] = mode
-        self.maps = load_maps()          # pick up maps added to my-maps/ while the game is open
+        self.maps = load_maps()          # pick up maps added to maps/ while the game is open
         self.scene = ChooseMap(self)
 
     def chosen_map(self):

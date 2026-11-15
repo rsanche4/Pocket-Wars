@@ -1,0 +1,16 @@
+{
+ "name": "Fortress",
+ "theme": "grass",
+ "blurb": "Each HQ sits behind a moat with one bridge. Starve them out or fly in.",
+ "art": [
+  "o-o-G-o-o-o",
+  "~ = | | | |",
+  "H~o-o-G-o-o",
+  "= ~ | | | |",
+  "o-o-o-o-o-o",
+  "| | | | ~ =",
+  "o-o-G-o-o~h",
+  "| | | | = ~",
+  "o-o-o-G-o-o"
+ ]
+}

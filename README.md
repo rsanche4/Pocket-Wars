@@ -21,8 +21,8 @@ What the Hard CPU has learned about you is kept in `learned.json` (Options → H
 |---|---|---|
 | `assets/` | every picture and sound the game uses | yes: replace any file with your own (same name) |
 | `data/` | unit stats (`units.json`), CPU settings (`ai.json`), colours and battle-scene timing (`style.json`), font layout (`font.json`), How to Play and editor guide text (`howto.json`, `editor_help.json`) | yes |
-| `maps/` | the built-in maps, one `.json` each | yes: add or edit maps |
-| `my-maps/` | maps you make in the editor. Share a map by sending its file; drop a friend's file in here to play it | yes |
+| `maps/` | every map, one `.json` each: the built-in ones and the ones you save from the map editor (which can open and edit any of them). Share a map by sending its file; drop a friend's file in here to play it | yes: add or edit maps |
+| `data/default-maps/` | untouched copies of the built-in maps, used by RESET TO DEFAULT (and to bring back deleted ones) | only if you want to change what "default" means |
 | `pw/` | the Python code | |
 | `tools/` | helper scripts: CPU simulations, the sound and music generators | |
 
@@ -44,7 +44,8 @@ What the Hard CPU has learned about you is kept in `learned.json` (Options → H
 | `title.py` | the title screen, its intro, the live battle behind it and the commanders |
 | `menus.py` | choose a battlefield, battle setup, options |
 | `howto.py` | How to Play (and the editor's guide), with their pictures |
-| `editor.py` | the map editor and the list of your maps |
+| `editor.py` | the map editor, the list of maps, and the RANDOM MAP screen |
+| `mapgen.py` | the map generator: builds a fair, mirrored map from a few settings |
 | `demo.py` | make-believe battles for the title and How to Play |
 | `settings.py` | loads and saves `settings.json` |
 | `sound.py` | plays sound effects and music from files (missing files are just silent) |

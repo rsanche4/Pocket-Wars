@@ -1,4 +1,4 @@
-"""The map editor and the list of your maps. Maps are saved as files in my-maps/ (see data.py for the format).
+"""The map editor and the list of your maps. Maps are saved as files in maps/ (see data.py for the format).
 
 The map is edited as its text drawing (`art`), one character per spot: outposts on even rows and columns,
 links between them, diagonals on odd rows and odd columns. ENTER cycles what is on a spot; HQs are moved by
@@ -6,10 +6,13 @@ picking them up. With MIRROR on, every change is copied to the opposite side, tu
 """
 import math
 import os
+import random
 import pygame
 
 from . import sound
-from .data import ROOT, parse_map, map_problems, reachable, save_my_map
+from .data import ROOT, parse_map, map_problems, reachable, save_map, default_of, reset_map, load_maps, \
+    missing_defaults, restore_defaults
+from .mapgen import generate, OPTIONS, DEFAULTS
 from .gfx import C, SIDES, SW, SH, THEMES, rect, box, text, ellipse, digits
 from .menus import mini_map
 
@@ -42,10 +45,10 @@ class Editor:
         rows = art or (m.art if m else blank_art(5, 3))
         width = max(len(r) for r in rows)
         self.art = [list(r.ljust(width)) for r in rows]
-        mine = [x for x in app.maps if x.custom] if app else []
-        self.name = m.name if m else f'MY MAP {len(mine) + 1}'
+        self.name = m.name if m else f"MY MAP {free_number(app.maps if app else [], 'MY MAP')}"
         self.theme = m.theme if m else 'grass'
-        self.path = m.path if m else ''           # its file in my-maps/ ('' until first saved)
+        self.path = m.path if m else ''           # its file in maps/ ('' until first saved)
+        self.blurb = m.blurb if m else 'A custom battlefield.'
         self.mirror, (self.cy, self.cx) = mirror, at
         self.menu, self.menu_title, self.msel, self.msg, self.carry = None, '', 0, None, None
         self.fix_hq()
@@ -76,7 +79,7 @@ class Editor:
         return (self.name, self.theme, tuple(self.strings()))
 
     def as_map(self):
-        return parse_map({'name': self.name, 'theme': self.theme, 'art': [''.join(r) for r in self.art]}, True)
+        return parse_map({'name': self.name, 'theme': self.theme, 'art': [''.join(r) for r in self.art]})
 
     def cycle(self):
         """ENTER on a spot: outposts go none / outpost / barracks, links go none / road / river / bridge.
@@ -171,7 +174,7 @@ class Editor:
         self.cx, self.cy = min(self.cx, self.w - 1), min(self.cy, self.h - 1)
 
     def save(self):
-        self.path = save_my_map(self.name, self.theme, self.strings(), self.path)
+        self.path = save_map(self.name, self.theme, self.strings(), self.path, self.blurb)
         self.saved = self.snapshot()
         problem = map_problems(self.as_map())
         self.msg = f'SAVED, BUT NOT PLAYABLE YET: {problem[0]}' if problem else 'SAVED: PLAY IT FROM CHOOSE A BATTLEFIELD'
@@ -181,7 +184,7 @@ class Editor:
     def open_menu(self):
         def rename(d):
             base = self.name.rsplit(' ', 1)
-            number = base[1] if len(base) == 2 and base[1].isdigit() else str(len([m for m in self.app.maps if m.custom]) + 1)
+            number = base[1] if len(base) == 2 and base[1].isdigit() else '1'
             current = base[0] if base[0] in NAMES else NAMES[0]
             self.name = f'{NAMES[(NAMES.index(current) + d) % len(NAMES)]} {number}'
 
@@ -193,6 +196,7 @@ class Editor:
             if self.mirror:
                 self.mirror_all()
 
+        reset = [{'l': 'RESET TO DEFAULT', 'f': self.ask_reset}] if default_of(self.path) else []    # built-in maps only
         self.show_menu('MAP EDITOR', [
             {'l': 'HOW IT WORKS', 'f': lambda: self.app.editor_help(self)},
             {'l': 'SAVE', 'f': self.save},
@@ -200,13 +204,28 @@ class Editor:
             {'l': 'HEIGHT', 'val': lambda: f'◀ {(self.h + 1) // 2} ▶', 'adj': lambda d: self.resize(0, d)},
             {'l': 'THEME', 'val': lambda: f'◀ {self.theme.upper()} ▶', 'adj': theme},
             {'l': 'MIRROR EDITS', 'val': lambda: '◀ ON ▶' if self.mirror else '◀ OFF ▶', 'adj': mirror},
-            {'l': 'NAME', 'val': lambda: f'◀ {self.name} ▶', 'adj': rename},
+            {'l': 'NAME', 'val': lambda: f'◀ {self.name} ▶', 'adj': rename}] + reset + [
             {'l': 'DELETE MAP', 'dis': not self.path, 'f': self.ask_delete},
             {'l': 'EXIT EDITOR', 'f': self.leave},
             {'l': 'BACK TO MAP', 'f': lambda: None}])
 
     def show_menu(self, title, items):
         self.menu, self.menu_title, self.msel = items, title, 0
+
+    def ask_reset(self):
+        def reset():
+            d = reset_map(self.path)
+            width = max(len(r) for r in d['art'])
+            self.art = [list(r.ljust(width)) for r in d['art']]
+            self.name, self.theme, self.carry = d['name'], d.get('theme', 'grass'), None
+            self.blurb = d.get('blurb', self.blurb)
+            self.cy, self.cx = min(self.cy, self.h - 1), min(self.cx, self.w - 1)
+            self.saved = self.snapshot()
+            self.msg = 'BACK TO HOW IT CAME WITH THE GAME'
+            self.snd('save')
+        self.show_menu(f'RESET {self.name.upper()}?', [
+            {'l': 'NO, KEEP MY CHANGES', 'f': lambda: None},
+            {'l': 'YES, PUT THE ORIGINAL BACK', 'f': reset}])
 
     def ask_delete(self):
         def delete():
@@ -424,65 +443,205 @@ class Editor:
                 text(surf, it['val'](), x + w - 8, yy, C['ink'], 1, 'r')
 
 
+
+def free_number(maps, base):
+    """The first number n with no map called '<base> n' yet (so a new map gets a name of its own)."""
+    taken = {m.name.upper() for m in maps}
+    n = 1
+    while f'{base} {n}' in taken:
+        n += 1
+    return n
+
+
 # ---------------------------------------------------------------- the list of your maps
 class MapList:
-    def __init__(self, app):
-        self.app, self.sel = app, 0
+    def __init__(self, app, sel=0, msg=None):
+        self.app, self.sel, self.msg = app, sel, msg
         sound.music('title')
 
-    def mine(self):
-        return [m for m in self.app.maps if m.custom]
+    def rows(self):
+        """What the list shows: (label, kind, map). Kinds: new, random, map, restore, back."""
+        rows = [('+ NEW MAP', 'new', None), ('+ RANDOM MAP', 'random', None)]
+        rows += [(m.name, 'map', m) for m in self.app.maps]               # every map can be opened and edited
+        if missing_defaults():
+            rows.append(('RESTORE DELETED', 'restore', None))
+        return rows + [('< BACK', 'back', None)]
 
     def key(self, k):
-        maps = self.mine()
-        n = len(maps) + 2
+        rows = self.rows()
+        self.sel = min(self.sel, len(rows) - 1)
         if k in 'ud':
-            self.sel = (self.sel + (-1 if k == 'u' else 1)) % n
+            self.sel = (self.sel + (-1 if k == 'u' else 1)) % len(rows)
+            self.msg = None
             sound.play('cursor')
         elif k == 'b':
             sound.play('back')
             self.app.title()
         elif k == 'e':
             sound.play('select')
-            if self.sel == 0:
+            _, kind, m = rows[self.sel]
+            if kind == 'new':
                 self.app.edit_map(None)
-            elif self.sel == n - 1:
-                self.app.title()
+            elif kind == 'random':
+                self.app.scene = Generator(self.app)
+            elif kind == 'map':
+                self.app.edit_map(m)
+            elif kind == 'restore':
+                restore_defaults()
+                self.app.maps = load_maps()
+                self.msg = 'THE BUILT-IN MAPS ARE BACK'
+                sound.play('save')
             else:
-                self.app.edit_map(maps[self.sel - 1])
+                self.app.title()
 
     def update(self, now, dt):
         pass
 
     def draw(self, surf, now):
-        maps = self.mine()
-        items = ['+ NEW MAP'] + [m.name for m in maps] + ['< BACK']
+        rows = self.rows()
+        self.sel = min(self.sel, len(rows) - 1)
         surf.fill(C['olive_dark'])
         rect(surf, 0, 0, SW, 16, C['olive'])
         text(surf, 'MAP EDITOR', SW / 2, 5, C['highlight'], 1, 'c', C['ink'])
         shown = 13
-        top = max(0, min(len(items) - shown, self.sel - 6))
+        top = max(0, min(len(rows) - shown, self.sel - 6))
         box(surf, 4, 20, 124, shown * 13 + 6)
-        for k in range(min(shown, len(items) - top)):
+        for k in range(min(shown, len(rows) - top)):
             i, y = top + k, 24 + k * 13
             if i == self.sel:
                 rect(surf, 7, y - 1, 118, 11, C['highlight'])
-            text(surf, items[i][:19], 10, y + 1, C['ink'] if i == self.sel else C['olive_dark'])
+            text(surf, rows[i][0][:19], 10, y + 1, C['ink'] if i == self.sel else C['olive_dark'])
         box(surf, 132, 20, 184, 198)
-        if 0 < self.sel <= len(maps):
-            m = maps[self.sel - 1]
+        _, kind, m = rows[self.sel]
+        if kind == 'map':
             mini_map(surf, m, 135, 23, 178, 110)
             text(surf, 'ENTER: EDIT', 224, 142, C['ink'], 1, 'c')
-            for k, s in enumerate(['PLAY IT FROM CHOOSE A', 'BATTLEFIELD.', '', 'ITS FILE (SEND IT TO SHARE):', os.path.basename(m.path)[:28]]):
-                text(surf, s, 224, 160 + k * 10, C['olive'] if k == 4 else C['dim'], 1, 'c')
-        elif self.sel == 0:
+            lines = ['PLAY IT FROM CHOOSE A', 'BATTLEFIELD.', '', 'ITS FILE (SEND IT TO SHARE):', os.path.basename(m.path)[:28]]
+            if default_of(m.path):
+                lines[2:3] = ['BUILT-IN: RESET TO DEFAULT', 'IS IN THE EDITOR MENU.', '']
+            for k, line in enumerate(lines):
+                text(surf, line, 224, 156 + k * 10, C['olive'] if k == len(lines) - 1 else C['dim'], 1, 'c')
+        elif kind == 'new':
             lines = ['BUILD YOUR OWN', 'BATTLEFIELD.', '', 'ARROWS: MOVE OVER', 'OUTPOSTS AND LINKS', 'ENTER: CHANGE THEM', '',
                      'ENTER ON AN HQ PICKS IT', 'UP SO YOU CAN MOVE IT.', '', 'NEW TO IT? OPEN THE MENU', '(UP FROM THE TOP ROW)',
-                     'AND PICK HOW IT WORKS.', '', 'MAPS ARE SAVED IN MY-MAPS.']
-            for k, s in enumerate(lines):
-                text(surf, s, 224, 30 + k * 12, C['ink'] if k < 2 else C['olive'] if 9 < k < 13 else C['dim'], 1, 'c')
+                     'AND PICK HOW IT WORKS.', '', 'MAPS ARE SAVED IN MAPS.']
+            for k, line in enumerate(lines):
+                text(surf, line, 224, 30 + k * 12, C['ink'] if k < 2 else C['olive'] if 9 < k < 13 else C['dim'], 1, 'c')
+        elif kind == 'random':
+            lines = ['LET THE GAME MAKE ONE.', '', 'PICK THE SIZE, THEME,', 'RIVERS, ROADS AND', 'BARRACKS, AND IT BUILDS',
+                     'A FAIR, READY TO PLAY', 'MAP. REROLL UNTIL YOU', 'LIKE IT, THEN SAVE IT', 'OR TWEAK IT IN THE EDITOR.']
+            for k, line in enumerate(lines):
+                text(surf, line, 224, 40 + k * 12, C['ink'] if k == 0 else C['dim'], 1, 'c')
+        elif kind == 'restore':
+            lines = ['SOME MAPS THAT CAME WITH', 'THE GAME WERE DELETED.', '', 'ENTER: PUT THEM BACK.', '',
+                     *[n[:-5].upper()[:24] for n in missing_defaults()[:8]]]
+            for k, line in enumerate(lines):
+                text(surf, line, 224, 34 + k * 12, C['ink'] if k == 3 else C['dim'], 1, 'c')
         else:
             text(surf, 'BACK TO TITLE', 224, 110, C['ink'], 1, 'c')
+        if self.msg:
+            rect(surf, 132, 222, 184, 14, C['ink'])
+            text(surf, self.msg, 224, 226, C['highlight'], 1, 'c')
+
+
+# ---------------------------------------------------------------- the map generator screen
+class Generator:
+    """Settings on the left, a live preview of the map they make on the right (see mapgen.py)."""
+    LABELS = {'size': 'SIZE', 'theme': 'THEME', 'rivers': 'RIVERS', 'roads': 'ROADS', 'barracks': 'BARRACKS',
+              'diagonals': 'DIAGONALS'}
+
+    def __init__(self, app):
+        self.app, self.sel = app, len(OPTIONS)            # start on REROLL
+        if not hasattr(app, 'gen_settings'):              # the settings are remembered while the game is open
+            app.gen_settings = dict(DEFAULTS)
+        self.settings = app.gen_settings
+        self.seed = random.randrange(1 << 30)
+        self.make()
+
+    def make(self):
+        self.d = generate(self.settings, self.seed, [m.name for m in self.app.maps])
+        self.m = parse_map(self.d)
+
+    def items(self):
+        rows = []
+        for key, values in OPTIONS.items():
+            def adj(d, key=key, values=values):
+                self.settings[key] = values[(values.index(self.settings[key]) + d) % len(values)]
+                self.make()
+            rows.append({'l': self.LABELS[key], 'val': f'◀ {self.settings[key]} ▶', 'adj': adj})
+        return rows + [{'l': 'REROLL', 'f': self.reroll}, {'l': 'EDIT IT', 'f': self.edit},
+                       {'l': 'SAVE IT', 'f': self.save}, {'l': '< BACK', 'f': self.back}]
+
+    def reroll(self):
+        self.seed = random.randrange(1 << 30)
+        self.make()
+
+    def edit(self):
+        e = Editor(self.app, self.m)
+        e.saved = None                                    # not saved yet: leaving the editor will ask
+        self.app.scene = e
+
+    def save(self):
+        path = save_map(self.d['name'], self.d['theme'], self.d['art'], blurb=self.d['blurb'])
+        self.app.maps = load_maps()
+        at = next((k for k, m in enumerate(self.app.maps) if m.path == path), 0)
+        self.app.scene = MapList(self.app, sel=at + 2, msg='SAVED! READY TO PLAY')
+
+    def back(self):
+        self.app.scene = MapList(self.app, sel=1)
+
+    def key(self, k):
+        items = self.items()
+        it = items[self.sel]
+        if k in 'ud':
+            self.sel = (self.sel + (-1 if k == 'u' else 1)) % len(items)
+            sound.play('cursor')
+        elif k in 'lr' and it.get('adj'):
+            it['adj'](-1 if k == 'l' else 1)
+            sound.play('adjust')
+        elif k == 'e':
+            if it.get('adj'):
+                it['adj'](1)
+                sound.play('adjust')
+            else:
+                sound.play('save' if it['f'] == self.save else 'select')
+                it['f']()
+        elif k == 'b':
+            sound.play('back')
+            self.back()
+
+    def update(self, now, dt):
+        pass
+
+    def draw(self, surf, now):
+        surf.fill(C['olive_dark'])
+        rect(surf, 0, 0, SW, 16, C['olive'])
+        text(surf, 'RANDOM MAP', SW / 2, 5, C['highlight'], 1, 'c', C['ink'])
+        items = self.items()
+        box(surf, 4, 20, 146, len(items) * 13 + 14)
+        y = 24
+        for k, it in enumerate(items):
+            if k == len(OPTIONS):
+                y += 6                                   # a little gap between the settings and the buttons
+            if k == self.sel:
+                rect(surf, 7, y - 1, 140, 11, C['highlight'])
+            col = C['ink'] if k == self.sel else C['olive_dark']
+            text(surf, it['l'], 10, y + 1, col)
+            if it.get('val'):
+                text(surf, it['val'], 144, y + 1, col, 1, 'r')
+            y += 13
+        m, d = self.m, self.d
+        box(surf, 154, 20, 162, 198)
+        mini_map(surf, m, 157, 23, 156, 100)
+        text(surf, d['name'], 235, 130, C['ink'], 1, 'c')
+        cols, rows = (len(d['art'][0]) + 1) // 2, (len(d['art']) + 1) // 2
+        art = ''.join(d['art'])
+        bridges = art.count('=')
+        for k, line in enumerate([f'{cols} X {rows} · {len(m.nodes)} OUTPOSTS',
+                                  f"{art.count('G')} BARRACKS · {bridges} BRIDGE{'' if bridges == 1 else 'S'}",
+                                  f"{art.count('~')} RIVER CROSSINGS", '',
+                                  '◀ ▶ CHANGE A SETTING', 'REROLL: ANOTHER MAP', 'EDIT IT: TWEAK, THEN SAVE']):
+            text(surf, line, 235, 144 + k * 10, C['dim'] if k < 3 else C['olive'], 1, 'c')
 
 
 # ---------------------------------------------------------------- demos for the guides (the real editor, scripted)

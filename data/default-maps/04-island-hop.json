@@ -1,0 +1,12 @@
+{
+ "name": "Island Hop",
+ "theme": "beach",
+ "blurb": "Three islands. The middle one holds the barracks, reached by two bridges.",
+ "art": [
+  "o-o-o~G~o-o-o",
+  "| | | | | | |",
+  "H-o-o=o=o-o-h",
+  "| | | | | | |",
+  "o-o-o~G~o-o-o"
+ ]
+}

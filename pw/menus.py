@@ -86,7 +86,7 @@ class ChooseMap:
             on = i == self.sel
             if on:
                 rect(surf, 7, y - 1, 98, 11, C['highlight'])
-            label = '< BACK' if i == len(maps) else ('* ' if maps[i].custom else '') + maps[i].name
+            label = '< BACK' if i == len(maps) else maps[i].name
             text(surf, label[:16], 10, y + 1, C['ink'] if on else C['olive_dark'])
         if self.sel == len(maps):
             box(surf, 112, 20, 204, 126)
@@ -99,7 +99,7 @@ class ChooseMap:
         text(surf, m.name, 118, 155, C['ink'])
         n = len(m.nodes)
         text(surf, 'LARGE' if n >= 24 else 'MEDIUM' if n >= 15 else 'SMALL', SW - 10, 155, C['dim'], 1, 'r')
-        problem = m.custom and map_problems(m)
+        problem = map_problems(m)
         blurb = f"CAN'T BE PLAYED YET: {problem[0]}. FIX IT IN THE MAP EDITOR." if problem else m.blurb
         for k, line in enumerate(wrap(blurb, 32)[:4]):
             text(surf, line, 118, 167 + k * 9, C['red'] if problem else C['dim'])

@@ -1,6 +1,6 @@
 """Loading the game's data files: unit stats, CPU settings and maps.
 
-Maps are small JSON files: {"name", "theme", "blurb", "art"}. Built-in maps live in maps/, your own in my-maps/.
+Maps are small JSON files: {"name", "theme", "blurb", "art"}. Every map is a file in maps/, including the ones you make in the editor.
 The "art" is a drawing made of text. Outposts sit on even rows and even columns; the characters between them are links:
     o outpost   G barracks (+1 soldier a turn)   H Green HQ   h Tan HQ   (space = nothing)
     - and |  road        ~ river (only helicopters cross)        = bridge
@@ -9,11 +9,12 @@ The "art" is a drawing made of text. Outposts sit on even rows and even columns;
 import json
 import os
 import re
+import shutil
 from dataclasses import dataclass, field
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAPS_DIR = os.path.join(ROOT, 'maps')
-MY_MAPS_DIR = os.path.join(ROOT, 'my-maps')
+DEFAULT_MAPS_DIR = os.path.join(ROOT, 'data', 'default-maps')     # untouched copies of the built-in maps
 
 
 def load_json(*path):
@@ -57,16 +58,15 @@ class Map:
     links: list = field(default_factory=list)
     w: int = 0
     h: int = 0
-    custom: bool = False
     path: str = ''
 
 
-def parse_map(d, custom=False, path=''):
+def parse_map(d, path=''):
     """Turn a map's text drawing into outposts (nodes) and the links between them."""
     art = d['art']
     rows, cols = len(art), max(len(r) for r in art)
     art = [r.ljust(cols) for r in art]
-    m = Map(d['name'], d.get('theme', 'grass'), d.get('blurb', 'A custom battlefield.'), d['art'], custom=custom, path=path)
+    m = Map(d['name'], d.get('theme', 'grass'), d.get('blurb', 'A custom battlefield.'), d['art'], path=path)
     index = {}
     for r in range(0, rows, 2):
         for c in range(0, cols, 2):
@@ -129,33 +129,65 @@ def reachable(m, start, roads_only):
 
 
 def load_maps():
-    """Built-in maps first (in file-name order), then everything in my-maps/. Broken files are skipped."""
+    """Every map in maps/, in file-name order. Broken files are skipped."""
     out = []
-    os.makedirs(MY_MAPS_DIR, exist_ok=True)
-    for folder, custom in ((MAPS_DIR, False), (MY_MAPS_DIR, True)):
-        for name in sorted(os.listdir(folder)):
-            if not name.lower().endswith('.json'):
-                continue
-            path = os.path.join(folder, name)
-            try:
-                with open(path, encoding='utf-8') as f:     # kept relative to the game folder, e.g. maps/01-boot-camp.json
-                    out.append(parse_map(json.load(f), custom, relative(path)))
-            except (OSError, ValueError, KeyError, TypeError) as e:
-                print(f'Pocket Wars: skipped map {path}: {e}')
+    os.makedirs(MAPS_DIR, exist_ok=True)
+    for name in sorted(os.listdir(MAPS_DIR)):
+        if not name.lower().endswith('.json'):
+            continue
+        path = os.path.join(MAPS_DIR, name)
+        try:
+            with open(path, encoding='utf-8') as f:     # kept relative to the game folder, e.g. maps/01-boot-camp.json
+                out.append(parse_map(json.load(f), relative(path)))
+        except (OSError, ValueError, KeyError, TypeError) as e:
+            print(f'Pocket Wars: skipped map {path}: {e}')
+    if not out and missing_defaults():       # every map was deleted: bring the built-in ones back (the game needs one)
+        restore_defaults()
+        return load_maps()
     return out
 
 
-def save_my_map(name, theme, art, old_path=''):
-    """Write a map into my-maps/ (that file is also what you share with friends). Returns its path."""
-    os.makedirs(MY_MAPS_DIR, exist_ok=True)
+def default_of(path):
+    """The untouched original of a built-in map (e.g. maps/01-boot-camp.json), or None for maps you made."""
+    original = os.path.join(DEFAULT_MAPS_DIR, os.path.basename(path or ''))
+    return original if path and os.path.isfile(original) else None
+
+
+def reset_map(path):
+    """Put a built-in map back the way it came with the game. Returns its contents."""
+    shutil.copyfile(default_of(path), os.path.join(ROOT, path))
+    with open(os.path.join(ROOT, path), encoding='utf-8') as f:
+        return json.load(f)
+
+
+def missing_defaults():
+    """Built-in maps whose file was deleted from maps/."""
+    return [n for n in sorted(os.listdir(DEFAULT_MAPS_DIR)) if n.endswith('.json') and not os.path.exists(os.path.join(MAPS_DIR, n))]
+
+
+def restore_defaults():
+    for n in missing_defaults():
+        shutil.copyfile(os.path.join(DEFAULT_MAPS_DIR, n), os.path.join(MAPS_DIR, n))
+
+
+def save_map(name, theme, art, old_path='', blurb='A custom battlefield.'):
+    """Write a map into maps/ (that file is also what you share with friends). Returns its path.
+    Saving over a map keeps anything else in its file (like a built-in map's blurb)."""
+    os.makedirs(MAPS_DIR, exist_ok=True)
     slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-') or 'map'
-    path = os.path.join(ROOT, old_path) if old_path else os.path.join(MY_MAPS_DIR, slug + '.json')
+    path = os.path.join(ROOT, old_path) if old_path else os.path.join(MAPS_DIR, slug + '.json')
     n = 2
     while not old_path and os.path.exists(path):      # never overwrite another map (e.g. a friend's with the same name)
-        path = os.path.join(MY_MAPS_DIR, f'{slug}-{n}.json')
+        path = os.path.join(MAPS_DIR, f'{slug}-{n}.json')
         n += 1
+    d = {'name': name, 'theme': theme, 'blurb': blurb, 'art': art}
+    try:
+        with open(path, encoding='utf-8') as f:
+            d = {**json.load(f), 'name': name, 'theme': theme, 'art': art}
+    except (OSError, ValueError):
+        pass
     with open(path, 'w', encoding='utf-8') as f:
-        json.dump({'name': name, 'theme': theme, 'blurb': 'A custom battlefield.', 'art': art}, f, indent=1)
+        json.dump(d, f, indent=1)
         f.write('\n')
     return relative(path)
 

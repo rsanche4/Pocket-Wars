@@ -1,0 +1,12 @@
+{
+ "name": "River Valley",
+ "theme": "grass",
+ "blurb": "Two rivers hem in the middle. The best barracks sit between them.",
+ "art": [
+  "o-o=o~o-o",
+  "| | | | |",
+  "H-G~G~G-h",
+  "| | | | |",
+  "o-o~o=o-o"
+ ]
+}

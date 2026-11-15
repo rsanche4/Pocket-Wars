@@ -9,7 +9,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from pw.data import load_maps          # noqa: E402
+from pw.data import load_maps, map_problems    # noqa: E402
 from pw.rules import Game              # noqa: E402
 from pw.ai import play_turn            # noqa: E402
 
@@ -34,7 +34,7 @@ def main():
     print(f"{'map':14s} green%  tan%  draw  avg turns")
     start = time.time()
     for m in load_maps():
-        if m.custom or a.map.lower() not in m.name.lower():
+        if map_problems(m) or a.map.lower() not in m.name.lower():
             continue
         res = [play(m, a.level, a.fog) for _ in range(a.games)]
         n = len(res)

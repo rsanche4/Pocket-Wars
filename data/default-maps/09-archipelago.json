@@ -1,0 +1,14 @@
+{
+ "name": "Archipelago",
+ "theme": "beach",
+ "blurb": "A chain of islands. Bridges are few; helicopters rule the sea.",
+ "art": [
+  "o~o-G~o-o~o",
+  "| | ~ | ~ |",
+  "H=o-o=o-o~o",
+  "| ~ = = ~ |",
+  "o~o-o=o-o=h",
+  "| ~ | ~ | |",
+  "o~o-o~G-o~o"
+ ]
+}

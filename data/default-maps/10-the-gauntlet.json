@@ -1,0 +1,12 @@
+{
+ "name": "The Gauntlet",
+ "theme": "snow",
+ "blurb": "A long, narrow frozen valley. Bridges are choke points. Scrolls sideways.",
+ "art": [
+  "o-o-o~G-o~o-o-o",
+  "| | | | = | | |",
+  "H-o-G=o-o=G-o-h",
+  "| | | = | | | |",
+  "o-o-o~o-G~o-o-o"
+ ]
+}
