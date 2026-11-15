@@ -1,0 +1,7 @@
+{
+ "soldier":    {"name": "Soldier",    "hp": 10,  "damage": [2, 5],  "move": 1, "sight": 1, "cost": 0},
+ "halftrack":  {"name": "Half-track", "hp": 14,  "damage": [4, 7],  "move": 2, "sight": 2, "cost": 2, "bonus_vs": {"helicopter": 1.5}},
+ "tank":       {"name": "Tank",       "hp": 32,  "damage": [8, 13], "move": 1, "sight": 1, "cost": 4, "cannot_hit": ["helicopter"]},
+ "helicopter": {"name": "Helicopter", "hp": 20,  "damage": [5, 9],  "move": 3, "sight": 3, "cost": 3, "flies": true},
+ "hq":         {"name": "HQ",         "hp": 100, "damage": [6, 10], "move": 0, "sight": 1, "cost": 0}
+}

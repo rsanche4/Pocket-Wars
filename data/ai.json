@@ -1,0 +1,18 @@
+{
+ "_about": "Hard CPU settings. 'value' = how much the CPU cares about each unit. 'weights' score single moves. 'look_ahead': before acting, Hard tries this many marches / vehicle buys / soldier placement plans on private copies of the board, each 'tries' times, playing out its attacks and the enemy's reply; 'eval' scores the board it ends up with. More marches/tries = stronger but slower.",
+ "value": {"soldier": 1, "halftrack": 2, "tank": 4, "helicopter": 3, "hq": 60},
+ "weights": {"prog": 1.0, "bar": 10.75, "nearHQ": 1.2, "atkPot": 1.6, "risk": 0.75, "chip": 1.6, "hqHit": 0.24, "ownHQ": 0.56,
+             "clear": 4, "thresh": 0.14, "bJ": 0.03, "bT": -0.11, "bH": 0.35, "front": 0.4, "lethal": 0.8, "keep": 0.48},
+ "look_ahead": {"marches": 6, "tries": 5, "buys": 2, "placements": ["usual", "front", "spread"]},
+ "eval": {"hq": 0.25, "outpost": 1, "barracks": 4, "army": 4},
+ "_styles": "Ways Hard can play against you. Each changes a few weights/eval numbers above. Against you, Hard picks the styles that have beaten you most often (memory in learned.json). All were tested to be about equally strong.",
+ "styles": {
+  "balanced": {},
+  "aggressive": {"weights": {"atkPot": 2.2, "risk": 0.55, "prog": 1.3, "thresh": 0.0}, "eval": {"army": 3.5}},
+  "defensive": {"weights": {"risk": 0.9}, "eval": {"army": 4.5}},
+  "air power": {"weights": {"bH": 0.8}},
+  "armor": {"weights": {"bT": 0.4}},
+  "land grab": {"weights": {"bar": 14, "prog": 1.2}, "eval": {"outpost": 1.6, "barracks": 6}}
+ },
+ "learn_counter": 1.0
+}

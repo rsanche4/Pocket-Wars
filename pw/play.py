@@ -1,0 +1,780 @@
+"""The battle screen: shows the battlefield, takes your keys, runs the CPU, plays marches and battle scenes.
+
+Things that take time (a CPU turn, a march, a battle scene) are written as generators ("scripts"): they yield a number
+of seconds to wait, or something with a done(now) method (a March, a CutIn), and carry on when it is finished.
+"""
+import math
+import pygame
+
+from . import ai, sound, learn
+from .stats import Stats
+from .data import UNITS, ORDER
+from .rules import Game, can_hit, damage_range, flies
+from .field import Field, March
+from .cutin import CutIn
+from .menu import Menu
+from .gfx import C, SIDES, SW, SH, rect, text, text_width, wrap, blit, portrait, unit_image
+
+TOP, BOTTOM = 13, 40
+VIEW_Y, VIEW_H = TOP, SH - TOP - BOTTOM
+
+
+def name(t):
+    return UNITS[t]['name'].upper()
+
+
+def avg(t):
+    return sum(UNITS[t]['damage']) / 2
+
+
+class Play:
+    def __init__(self, app, m, settings):
+        """settings: mode ('cpu', 'hot' = two players, 'watch' = CPU vs CPU), cpu ('normal'/'hard'), fog, timer, anim."""
+        self.app, self.settings = app, settings
+        mode = settings['mode']
+        self.bots = [mode == 'watch', mode in ('cpu', 'watch')]
+        self.levels = [settings['cpu'], settings['cpu']]
+        self.speed = {'full': 1, 'fast': .5, 'off': 0}[settings['anim']]
+        self.now = 0
+        self.g = Game(m, settings['fog'])
+        self.k = max(.36, min(.44, min((SW - 8) / m.w, (VIEW_H - 6) / m.h)))
+        self.field = Field(self.g, self.k)
+        self.cur, self.mode, self.menu = self.g.hq[0], 'cursor', None
+        self.viewer = 0                     # whose eyes the screen shows in two-player fog
+        self.script, self.wait = None, None
+        self.banner = self.cutin = None
+        self.pass_screen = False
+        self.camera = None
+        self.moods = [None, None]
+        self.time_left = 0
+        self.ended = False
+        self.memory = None
+        if mode == 'cpu' and settings['cpu'] == 'hard':      # Hard learns from games against you (learn.py)
+            you = self.human_side()
+            self.memory = learn.load()
+            self.g.learning = {'you': you, 'style': learn.pick_style(self.memory)}
+            self.g.styles = [None, None]
+            self.g.styles[1 - you] = self.g.learning['style']
+            habits = learn.habits(self.memory)
+            self.g.habits = {you: habits} if habits else {}
+        sound.music('battle')
+        self.turn_started()
+
+    # ------------------------------------------------------------------ helpers
+    def bot(self, p=None):
+        return self.bots[self.g.cur if p is None else p]
+
+    def human_side(self):
+        if self.bots[0] != self.bots[1]:
+            return 1 if self.bots[0] else 0
+        return self.g.cur
+
+    def viewer_side(self):
+        """Whose sight the screen shows (None = everything)."""
+        g = self.g
+        if not g.fog or g.phase == 'over' or all(self.bots):
+            return None
+        if self.bots[1]:
+            return 0
+        if self.bots[0]:
+            return 1
+        return self.viewer
+
+    def seen_by(self, i):
+        v = self.viewer_side()
+        return v is None or i in self.g.sight(v)
+
+    def pause(self, seconds):
+        return seconds * self.speed
+
+    def say_banner(self, title, color, sub=None):
+        self.banner = (title, color, sub, self.now)
+
+    def set_mood(self, p, mood, seconds=2.4):
+        self.moods[p] = (mood, self.now + seconds)
+
+    def mood_of(self, p):
+        g = self.g
+        if g.phase == 'over':
+            return 'happy' if g.winner == p else 'sad'
+        if self.moods[p] and self.moods[p][1] > self.now:
+            return self.moods[p][0]
+        q = g.hq_unit(p)
+        if q and q.hp < 35:
+            return 'hurt'
+        return 'focus' if g.cur == p and g.phase != 'gather' else 'happy'
+
+    def look(self, i):
+        """Move the cursor to where the CPU acts, when watching CPU vs CPU."""
+        if self.seen_by(i) and all(self.bots):
+            self.cur = i
+
+    # ------------------------------------------------------------------ turns
+    def turn_started(self):
+        g, p = self.g, self.g.cur
+        if not (self.bot(p) and not self.bot(1 - p)):
+            self.cur = g.hq[p]
+        self.mode, self.menu = 'cursor', None
+        self.time_left = self.settings['timer']
+        if g.fog and not any(self.bots):
+            self.pass_screen = True
+        else:
+            self.say_banner(f"{SIDES[p]['name']} TURN {g.turn}", SIDES[p]['main'])
+            sound.play('turn_' + SIDES[p]['name'].lower())
+        if self.bot(p):
+            self.run(self.cpu_turn())
+        elif not self.pass_screen:
+            self.after_gather()
+
+    def end_turn(self):
+        self.menu = None
+        self.g.end_turn()
+        self.turn_started()
+
+    def after_gather(self):
+        if self.g.phase == 'gather' and self.g.to_place <= 0 and not self.bot():
+            self.open_buy()
+
+    def to_march(self):
+        if self.g.turn == 1:
+            self.to_attack()
+            return
+        self.g.begin_march()
+        self.mode, self.menu = 'cursor', None
+        self.say_banner('MARCH', C['highlight'], 'ONE GROUP, ONE MOVE')
+        sound.play('march_phase')
+
+    def to_attack(self):
+        if self.g.phase != 'attack':
+            self.g.skip_march()
+        self.mode, self.menu = 'cursor', None
+        if not self.bot():
+            if self.g.turn == 1:
+                self.say_banner('FIRST TURN: DEPLOY ONLY', C['white'], 'NO MARCH, NO ATTACK')
+                self.open_commands()
+            else:
+                self.say_banner('ATTACK!', C['red'])
+                sound.play('attack_phase')
+
+    def game_over(self):
+        w = self.g.winner
+        self.ended = True
+        solo = self.bots[0] != self.bots[1]
+        sound.play('defeat' if solo and w != self.human_side() else 'victory')
+        sound.music('victory', loop=False)
+        if self.memory is not None:
+            learn.record(self.memory, self.g, self.g.learning['you'], self.g.learning['style'])
+            learn.save(self.memory)
+            self.g.learning['memory'] = self.memory
+        self.menu = self.over_menu()
+
+    def over_menu(self, sel=0):
+        w = self.g.winner
+        m = Menu(f"{SIDES[w]['name']} WINS!", [
+            {'l': 'BATTLE STATS', 'f': self.show_stats},
+            {'l': 'PLAY AGAIN', 'f': self.app.play_again},
+            {'l': 'MAIN MENU', 'f': self.app.main_menu}],
+            sub=f"{SIDES[1 - w]['name']} RESIGNED" if self.g.resigned else None, win=w)
+        m.sel = sel
+        return m
+
+    def show_stats(self):
+        def back():
+            self.app.scene = self
+            self.menu = self.over_menu(sel=1)          # back on the victory menu, on PLAY AGAIN
+        self.app.scene = Stats(self.app, self.g, back)
+
+    def resign(self, p):
+        self.script = self.wait = self.cutin = None
+        self.field.march = None
+        self.g.end_game(1 - p, resigned=True)
+        self.game_over()
+
+    # ------------------------------------------------------------------ scripts (things that take time)
+    def run(self, script):
+        self.script, self.wait = script, None
+
+    def update(self, now, dt):
+        self.now = now
+        while self.script:
+            w = self.wait
+            if isinstance(w, (int, float)) and now < w:
+                break
+            if hasattr(w, 'done') and not w.done(now):
+                break
+            script = self.script
+            try:
+                y = next(script)
+            except StopIteration:
+                if self.script is script:     # (it may have started the next turn's script itself)
+                    self.script = None
+                continue
+            if self.script is not script:     # a new script took over while this one ran
+                continue
+            self.wait = now + y if isinstance(y, (int, float)) else y
+        g = self.g
+        if g.phase == 'over' and not self.ended and not self.cutin:
+            self.game_over()
+        if self.settings['timer'] and g.phase != 'over' and not self.bot() and not self.pass_screen and not self.script:
+            before = math.ceil(self.time_left)
+            self.time_left -= dt
+            left = max(0, math.ceil(self.time_left))
+            if left < before and 0 < left <= 10:
+                sound.play('tick_last' if left <= 3 else 'tick')
+            if self.time_left <= 0:
+                sound.play('time_up')
+                self.menu = None
+                g.time_up()
+                self.turn_started()
+
+    def cpu_turn(self):
+        yield .5
+        actions, result = ai.turn(self.g, self.levels[self.g.cur]), None
+        while True:
+            try:
+                action = actions.send(result)
+            except StopIteration:
+                break
+            result = yield from self.perform(action)
+            if self.g.phase == 'over':
+                return
+            if action[0] in ('march', 'skip_march', 'end_gather'):
+                yield self.pause(.25 if action[0] != 'end_gather' else .2)
+        self.end_turn()
+
+    def perform(self, action):
+        """Carry out one action, with animation. Returns what the rules return (a Fight for attacks)."""
+        g, kind = self.g, action[0]
+        if kind == 'place':
+            g.place(action[1])
+            self.look(action[1])
+            if self.seen_by(action[1]):
+                sound.play('place')
+            yield self.pause(.16)
+        elif kind == 'buy':
+            g.buy(*action[1:])
+            self.set_mood(g.cur, 'happy', 1.6)
+            sound.play('buy')
+            yield self.pause(.2)
+        elif kind == 'march':
+            src, path, ids = action[1:]
+            self.look(src)
+            yield self.pause(.2)
+            yield from self.walk(src, path, ids)
+        elif kind == 'fight':
+            a, b, x, y = action[1:]
+            self.look(b)
+            yield self.pause(.12)
+            return (yield from self.fight(a, b, x, y))
+        elif kind == 'move_in':
+            yield from self.walk(action[1], [action[1], action[2]], action[3], move_in=True)
+        else:
+            return g.do(action)
+
+    def walk(self, src, path, ids, move_in=False):
+        g, dst = self.g, path[-1]
+        units = [u for u in g.units[src] if u.id in ids]
+        free = g.owner(dst) is None
+        see = self.seen_by(src) or self.seen_by(dst)
+        if see and self.speed:
+            m = March(path, units, .17 if self.speed < 1 else .3, self.now)
+            self.field.march = m
+            kind = 'heli' if all(flies(u.type) for u in units) else 'soldier' if all(u.type == 'soldier' for u in units) else 'vehicle'
+            gap = {'soldier': .15, 'vehicle': .17, 'heli': .095}[kind]
+            while not m.done(self.now):
+                sound.play('step_' + kind)
+                yield gap
+            self.field.march = None
+        if move_in:
+            g.move_in(src, dst, ids)
+        else:
+            g.march(src, path, ids)
+        if see and (free or move_in) and self.seen_by(dst):
+            sound.play('capture')
+
+    def fight(self, a, b, x, y):
+        g = self.g
+        see = self.seen_by(a) or self.seen_by(b)
+        f = g.fight(a, b, x, y)
+        self.fight_moods(f)
+        if see and self.speed:
+            self.cutin = CutIn(f, self.now, .25 if self.speed < 1 else 1)     # Fast: about a quarter of the full length
+            yield self.cutin
+            self.cutin = None
+        elif see:
+            sound.play('shot_' + x.type)
+            yield .25
+            sound.play('destroyed' if x.hp <= 0 or y.hp <= 0 else 'hit')
+        if see and not g.units[b] and y.type != 'hq':
+            sound.play('cleared')
+        return f
+
+    def fight_moods(self, f):
+        x, y = f.attacker, f.target
+        killed, lost = y.hp <= 0, f.fired_back and x.hp <= 0
+        if killed and y.type != 'hq':
+            self.set_mood(x.side, 'happy')
+            self.set_mood(y.side, 'sad')
+        elif lost:
+            self.set_mood(x.side, 'sad')
+            self.set_mood(y.side, 'happy')
+        elif y.type == 'hq' and f.dealt > 0:
+            self.set_mood(x.side, 'happy')
+            self.set_mood(y.side, 'angry')
+        else:
+            self.set_mood(y.side, 'hurt' if f.dealt > 0 else 'happy')
+            self.set_mood(x.side, 'hurt' if f.fired_back and f.taken >= f.dealt else 'happy')
+
+    def human_march(self, src, path, ids):
+        yield from self.walk(src, path, ids)
+        self.to_attack()
+
+    def human_fight(self, a, b, x, y):
+        p = self.g.cur
+        f = yield from self.fight(a, b, x, y)
+        if f.result == 'over' or self.g.phase == 'over':
+            return
+        if f.result == 'cleared':
+            self.menu = self.move_in_menu(a, b)
+        elif self.g.units[a] and self.g.units[b] and b in self.g.targets(p, a):
+            self.menu = self.fight_menu(a, b)
+        else:
+            self.mode = 'cursor'
+
+    def human_move_in(self, a, b, ids):
+        yield from self.walk(a, [a, b], ids, move_in=True)
+        self.mode = 'cursor'
+
+    # ------------------------------------------------------------------ menus
+    def open_commands(self, quiet=False):
+        g = self.g
+        if not quiet:
+            sound.play('open')
+        items = []
+        if g.phase == 'gather' and g.to_place == 0:
+            items.append({'l': 'BUY / NEXT', 'f': self.open_buy})
+        if g.phase == 'march':
+            items.append({'l': 'SKIP MARCH', 'f': self.to_attack})
+        items += [{'l': 'END TURN', 'f': self.end_turn},
+                  {'l': 'GAME LOG', 'f': lambda: setattr(self, 'menu', self.log_menu())},
+                  {'l': 'RESIGN', 'f': self.ask_resign},
+                  {'l': 'QUIT TO MENU', 'f': lambda: setattr(self, 'menu', Menu('QUIT THIS BATTLE?', [
+                      {'l': 'NO, KEEP PLAYING', 'f': lambda: None}, {'l': 'YES, QUIT', 'f': self.app.main_menu}]))},
+                  {'l': 'CLOSE', 'f': lambda: None}]
+        self.menu = Menu('COMMANDS', items)
+
+    def open_pause(self):
+        sound.play('open')
+        self.mode = 'cursor'
+        self.menu = Menu('PAUSED', [{'l': 'RESUME', 'f': lambda: None}, {'l': 'RESIGN', 'f': self.ask_resign},
+                                    {'l': 'QUIT TO MENU', 'f': self.app.main_menu}])
+
+    def ask_resign(self):
+        p = self.human_side()
+        self.mode = 'cursor'
+        self.menu = Menu(f"{SIDES[p]['name']}: RESIGN?", [
+            {'l': 'NO, KEEP FIGHTING', 'f': lambda: None},
+            {'l': f"YES, {SIDES[p]['name']} GIVES UP", 'f': lambda: self.resign(p) if self.g.phase != 'over' else None}],
+            sub=f"{SIDES[1 - p]['name']} WILL WIN")
+
+    def log_menu(self):
+        v = self.viewer_side()
+        items = []
+        for line, side, public in self.g.log[:30]:
+            if v is None or side is None or side == v or public:
+                for k, part in enumerate(wrap((SIDES[side]['name'] + ' ' if side is not None else '') + line, 40)):
+                    items.append({'l': part, 'info': True, 'col': SIDES[side]['main'] if k == 0 and side is not None else None})
+        items.append({'l': 'BACK', 'f': lambda: None})
+        m = Menu('GAME LOG', items, wide=True)
+        m.sel = len(items) - 1
+        return m
+
+    def open_buy(self):
+        g, p = self.g, self.g.cur
+
+        def can(t):
+            return not g.bought and any(g.count(i, 'soldier') >= UNITS[t]['cost'] for i in g.mine(p))
+
+        def choose(t):
+            self.mode, self.buy_type, self.menu = 'pick_buy', t, None
+            spots = [i for i in g.mine(p) if g.count(i, 'soldier') >= UNITS[t]['cost']]
+            if spots:
+                self.cur = spots[0]
+
+        items = [{'l': name(t), 'r': f"{UNITS[t]['cost']} SOLDIERS", 'icon': t, 'side': p, 'dis': not can(t), 'f': lambda t=t: choose(t)}
+                 for t in ORDER if UNITS[t]['cost'] > 0]
+        items.append({'l': 'DONE (DEPLOY ONLY)' if g.turn == 1 else 'NEXT: MARCH', 'f': self.to_march})
+        self.menu = Menu('BUY ONE VEHICLE?', items, sub='SPEND SOLDIERS ON ONE OUTPOST')
+
+    def group_from(self, i, counts):
+        out = []
+        for t in ORDER:
+            out += sorted([u for u in self.g.units[i] if u.type == t], key=lambda u: -u.hp)[:counts.get(t, 0)]
+        return out
+
+    def counter(self, label_type, counts, most):
+        def adj(d):
+            counts[label_type] = max(0, min(most, counts[label_type] + d))
+        return {'l': name(label_type), 'icon': label_type, 'side': self.g.cur,
+                'val': lambda: f'◀ {counts[label_type]}/{most} ▶', 'adj': adj}
+
+    def group_menu(self, i, counts=None):
+        g = self.g
+        if counts is None:
+            counts = {t: g.count(i, t) for t in ORDER}
+
+        def go():
+            if not self.group_from(i, counts):
+                sound.play('error')
+                self.menu = self.group_menu(i, counts)
+                return
+            self.mode, self.src, self.counts, self.menu = 'pick_dest', i, counts, None
+
+        items = [self.counter(t, counts, g.count(i, t)) for t in ORDER if g.count(i, t)]
+        items += [{'l': 'MOVE ▶', 'f': go}, {'l': 'CANCEL', 'f': lambda: None}]
+        return Menu('WHO MARCHES?', items, sub='◀ ▶ CHANGE HOW MANY')
+
+    def fight_menu(self, a, b):
+        g = self.g
+        ready = lambda: [x for x in g.units[a] if x.id not in g.used and any(can_hit(x.type, y.type) for y in g.units[b])]
+        st = {'a': 0, 't': 0}
+        attacker = lambda: ready()[st['a'] % len(ready())] if ready() else None
+        targets = lambda x: [y for y in g.units[b] if can_hit(x.type, y.type)] if x else []
+        target = lambda: (targets(attacker()) or [None])[st['t'] % max(1, len(targets(attacker())))]
+        r = ready()
+        if r:      # start with the strongest attacker and its weakest target
+            st['a'] = max(range(len(r)), key=lambda k: (avg(r[k].type), -k))
+            ts = targets(r[st['a']])
+            st['t'] = min(range(len(ts)), key=lambda k: (ts[k].hp, k))
+
+        def odds():
+            x, y = attacker(), target()
+            if not x or not y:
+                return ''
+            lo, hi = damage_range(x.type, y.type)
+            back = can_hit(y.type, x.type)
+            take = '-'.join(map(str, damage_range(y.type, x.type))) if back else '0'
+            return f"DEAL {lo}-{hi}  TAKE {take}{'  AA!' if UNITS[x.type].get('bonus_vs', {}).get(y.type) else ''}"
+
+        def fire():
+            x, y = attacker(), target()
+            if x and y:
+                self.run(self.human_fight(a, b, x, y))
+
+        def adj_attacker(d):
+            st['a'] = (st['a'] + d) % max(1, len(ready()))
+            st['t'] = 0
+
+        items = [{'l': 'ATTACKER', 'val': lambda: f"◀ {name(attacker().type)} {attacker().hp}HP ▶" if attacker() else '-', 'adj': adj_attacker},
+                 {'l': 'TARGET', 'val': lambda: f"◀ {name(target().type)} {target().hp}HP ▶" if target() else '-',
+                  'adj': lambda d: st.update(t=(st['t'] + d) % max(1, len(targets(attacker()))))},
+                 {'l': '', 'info': True, 'val': odds},
+                 {'l': 'FIRE!', 'col': C['red'], 'f': fire},
+                 {'l': 'BACK', 'f': lambda: setattr(self, 'mode', 'cursor')}]
+        m = Menu('ATTACK!', items, pair=(a, b))
+        m.sel = 3
+        return m
+
+    def move_in_menu(self, a, b, counts=None):
+        g = self.g
+        can = g.move_in_choices(a, b)
+        if counts is None:
+            counts = {t: 0 for t in ORDER}
+            soldiers = sum(1 for u in can if u.type == 'soldier')
+            if soldiers:
+                counts['soldier'] = math.ceil(soldiers / 2)
+            else:
+                counts[can[0].type] = 1
+
+        def go():
+            ids = [u.id for t in ORDER for u in [u for u in can if u.type == t][:counts[t]]]
+            if not ids:
+                sound.play('error')
+                self.menu = self.move_in_menu(a, b, counts)
+                return
+            self.run(self.human_move_in(a, b, ids))
+
+        items = [self.counter(t, counts, sum(1 for u in can if u.type == t)) for t in ORDER if any(u.type == t for u in can)]
+        items += [{'l': 'MOVE IN', 'f': go}, {'l': 'STAY PUT', 'f': lambda: setattr(self, 'mode', 'cursor')}]
+        return Menu('OUTPOST CLEARED!', items, sub='MOVE IN FOR FREE?')
+
+    # ------------------------------------------------------------------ keys
+    def key(self, k):
+        g = self.g
+        if self.cutin:
+            if k in 'eb':
+                self.cutin.skipped = True
+            return
+        if self.pass_screen:
+            if k == 'e':
+                self.pass_screen = False
+                self.viewer = g.cur
+                self.say_banner(f"{SIDES[g.cur]['name']} TURN {g.turn}", SIDES[g.cur]['main'])
+                sound.play('turn_' + SIDES[g.cur]['name'].lower())
+                self.after_gather()
+            return
+        if self.menu:
+            m, it = self.menu, self.menu.items[self.menu.sel]
+            if k in 'ud':
+                m.move(-1 if k == 'u' else 1)
+                sound.play('cursor')
+            elif k in 'lr' and it.get('adj'):
+                it['adj'](-1 if k == 'l' else 1)
+                sound.play('adjust')
+            elif k == 'b' and g.phase != 'over':
+                sound.play('back')
+                self.menu, self.mode = None, 'cursor'
+            elif k == 'e':
+                if it.get('dis') or it.get('info'):
+                    sound.play('error')
+                    return
+                sound.play('select')
+                self.menu = None
+                if it.get('f'):
+                    it['f']()
+            return
+        if g.phase == 'over':
+            return
+        busy = self.script is not None or self.bot()
+        if k == 'b' and busy:
+            self.open_pause()
+            return
+        if busy:
+            return
+        if k in 'udlr':
+            j = self.node_toward(k)
+            if j is not None:
+                self.cur = j
+                sound.play('map_cursor')
+            return
+        if k == 'b':
+            if self.mode != 'cursor':
+                self.mode = 'cursor'
+                sound.play('back')
+            else:
+                self.open_pause()
+            return
+        if k == 'e':
+            self.enter()
+
+    def enter(self):
+        g, p, i, mode = self.g, self.g.cur, self.cur, self.mode
+        if mode == 'pick_buy':
+            if g.owner(i) == p and g.count(i, 'soldier') >= UNITS[self.buy_type]['cost']:
+                g.buy(i, self.buy_type)
+                self.set_mood(p, 'happy', 1.6)
+                sound.play('buy')
+                self.to_march()
+            else:
+                sound.play('back')
+                self.mode = 'cursor'
+                self.open_buy()
+        elif mode == 'pick_dest':
+            group = self.group_from(self.src, self.counts)
+            dests = g.destinations(p, self.src, group)
+            self.mode = 'cursor'
+            if i in dests:
+                self.run(self.human_march(self.src, dests[i], [u.id for u in group]))
+            else:
+                sound.play('back')
+        elif mode == 'pick_target':
+            if i in g.targets(p, self.src):
+                self.menu = self.fight_menu(self.src, i)
+                sound.play('select')
+            else:
+                sound.play('back')
+                self.mode = 'cursor'
+        elif g.phase == 'gather':
+            if g.to_place > 0:
+                if g.can_place(p, i):
+                    g.place(i)
+                    sound.play('place')
+                    self.after_gather()
+                else:
+                    sound.play('error')
+                    self.open_commands(quiet=True)
+            else:
+                self.open_buy()
+        elif g.phase == 'march':
+            if g.owner(i) == p and g.movable(i):
+                self.menu = self.group_menu(i)
+                sound.play('select')
+            else:
+                self.open_commands()
+        elif g.phase == 'attack':
+            targets = g.targets(p, i) if g.turn > 1 and g.owner(i) == p else []
+            if targets:
+                self.mode, self.src = 'pick_target', i
+                if len(targets) == 1:
+                    self.menu = self.fight_menu(i, targets[0])
+                else:
+                    self.cur = targets[0]
+                sound.play('select')
+            else:
+                self.open_commands()
+
+    def node_toward(self, d):
+        """The outpost the cursor should jump to when pressing an arrow."""
+        nodes, here = self.g.map.nodes, self.g.map.nodes[self.cur]
+        v = self.viewer_side()
+        vis = self.g.sight(v) if self.g.blackout and v is not None else None
+        best, score = None, 1e9
+        for i, n in enumerate(nodes):
+            if i == self.cur or (vis is not None and i not in vis):
+                continue
+            dx, dy = n.x - here.x, n.y - here.y
+            along, side = {'l': (-dx, abs(dy)), 'r': (dx, abs(dy)), 'u': (-dy, abs(dx)), 'd': (dy, abs(dx))}[d]
+            if along > 10 and along + side * 2.2 < score:
+                best, score = i, along + side * 2.2
+        return best
+
+    # ------------------------------------------------------------------ drawing
+    def highlights(self):
+        g, p, h = self.g, self.g.cur, set()
+        if self.bot() or self.script or self.pass_screen or g.phase == 'over' or (self.menu and not self.menu.pair):
+            return h
+        for i in range(len(g.units)):
+            if self.mode == 'pick_buy':
+                if g.owner(i) == p and g.count(i, 'soldier') >= UNITS[self.buy_type]['cost']:
+                    h.add(i)
+            elif self.mode == 'pick_target':
+                if i in g.targets(p, self.src):
+                    h.add(i)
+            elif self.mode == 'cursor':
+                if (g.phase == 'gather' and g.to_place > 0 and g.can_place(p, i)) or \
+                   (g.phase == 'march' and g.owner(i) == p and g.movable(i)) or \
+                   (g.phase == 'attack' and g.turn > 1 and g.owner(i) == p and g.targets(p, i)):
+                    h.add(i)
+        if self.mode == 'pick_dest':
+            h |= set(g.destinations(p, self.src, self.group_from(self.src, self.counts)))
+        if self.menu and self.menu.pair:
+            h |= set(self.menu.pair)
+        return h
+
+    def cam(self):
+        n = self.g.map.nodes[self.cur]
+        ww, wh = self.field.world.get_size()
+        tx = (ww - SW) / 2 if ww <= SW else max(0, min(ww - SW, n.x * self.k - SW / 2))
+        ty = (wh - VIEW_H) / 2 if wh <= VIEW_H else max(0, min(wh - VIEW_H, n.y * self.k - VIEW_H / 2))
+        if self.camera is None:
+            self.camera = [tx, ty]
+        self.camera[0] += (tx - self.camera[0]) * .25
+        self.camera[1] += (ty - self.camera[1]) * .25
+        return round(self.camera[0]), round(self.camera[1]) - VIEW_Y
+
+    def draw(self, surf, now):
+        g = self.g
+        surf.fill(C['background'])
+        v = self.viewer_side()
+        vis = g.sight(v) if v is not None else None
+        show_cursor = self.cur if not self.script and not self.bot() else None
+        self.field.draw(surf, self.cam(), now, vis, g.blackout, self.highlights(), show_cursor)
+        self.draw_top(surf, now, vis)
+        self.draw_info(surf, vis)
+        if self.banner:
+            title, col, sub, t0 = self.banner
+            t = now - t0
+            if t > 1.3:
+                self.banner = None
+            else:
+                y = round(VIEW_Y + VIEW_H / 2 - 14 + ((.15 - t) * 200 if t < .15 else 0))
+                rect(surf, 0, y, SW, 24, pygame.Color(10, 12, 7, 217))
+                rect(surf, 0, y, SW, 1, col)
+                rect(surf, 0, y + 23, SW, 1, col)
+                text(surf, title, SW / 2, y + 5, col, 1, 'c')
+                if sub:
+                    text(surf, sub, SW / 2, y + 15, C['white'], 1, 'c')
+        if self.menu:
+            self.menu.draw(surf, VIEW_Y, VIEW_H, SIDES[self.menu.win if self.menu.win is not None else 0])
+            if self.menu.win is not None:
+                w = self.menu.win
+                portrait(surf, w, 'happy', 4, VIEW_Y + 40)
+                portrait(surf, 1 - w, 'sad', SW - 60, VIEW_Y + 40)
+                for side, cx in ((w, 32), (1 - w, SW - 32)):
+                    for k, word in enumerate(SIDES[side]['commander'].split(' ')):
+                        text(surf, word, cx, VIEW_Y + 101 + k * 9, C['white'], 1, 'c', C['ink'])
+        if self.pass_screen:
+            self.draw_pass(surf, now)
+        if self.cutin:
+            self.cutin.draw(surf, now)
+
+    def draw_top(self, surf, now, vis):
+        g, p = self.g, self.g.cur
+        rect(surf, 0, 0, SW, TOP, C['olive'])
+        rect(surf, 0, TOP - 1, SW, 1, C['olive_dark'])
+        blit(surf, unit_image('icons', 'soldier', p), 3, 1)
+        text(surf, SIDES[p]['name'], 14, 3, SIDES[p]['main'], 1, 'l', C['ink'])
+        phase = {'gather': 'GATHER', 'march': 'MARCH', 'attack': 'ATTACK', 'over': 'GAME OVER'}[g.phase]
+        text(surf, f"T{g.turn} {phase}{' · PLACE ' + str(g.to_place) if g.phase == 'gather' and g.to_place > 0 else ''}", 56, 3, C['white'])
+        if self.settings['timer'] and not self.bot() and g.phase != 'over':
+            left = max(0, math.ceil(self.time_left))
+            rect(surf, SW - 34, 1, 33, 11, C['red'] if left <= 10 and int(now / .26) % 2 else C['ink'])
+            text(surf, f'{left}S', SW - 4, 3, C['white'], 1, 'r')
+        else:
+            enemy = g.hq_unit(1 - p)
+            known = vis is None or g.hq[1 - p] in vis
+            text(surf, f"ENEMY HQ {enemy.hp if enemy and known else '?'}", SW - 3, 3, SIDES[1 - p]['main'], 1, 'r', C['ink'])
+
+    def draw_info(self, surf, vis):
+        g, y0, i = self.g, SH - BOTTOM, self.cur
+        rect(surf, 0, y0, SW, BOTTOM, C['paper'])
+        rect(surf, 0, y0, SW, 1, C['ink'])
+        rect(surf, 0, y0 + 1, SW, 1, C['paper_dark'])
+        n, seen = g.map.nodes[i], vis is None or i in vis
+        side, kind = (g.owner(i) if seen else None), self.field.kinds[i]
+        title = f"{SIDES[n.hq]['name']} HQ" if kind == 'hq' else 'BARRACKS (+1 SOLDIER)' if n.barracks else kind.upper()
+        text(surf, title, 4, y0 + 4, SIDES[n.hq]['dark'] if kind == 'hq' else C['ink'])
+        if kind != 'hq':
+            text(surf, ('EMPTY' if seen else 'UNKNOWN') if side is None else SIDES[side]['name'], 4 + text_width(title) + 6, y0 + 4,
+                 C['grey'] if side is None else SIDES[side]['dark'])
+        if seen:
+            x = 4
+            for t in ORDER + ['hq']:
+                grp = [u for u in g.units[i] if u.type == t]
+                if not grp:
+                    continue
+                if t == 'hq':
+                    text(surf, f'HP {grp[0].hp}', SW - 44, y0 + 4, C['ink'], 1, 'r')
+                    continue
+                img = unit_image('icons', t, grp[0].side)
+                blit(surf, img, x, y0 + 24 - img.get_height())
+                text(surf, len(grp), x + img.get_width() + 1, y0 + 17, C['ink'])
+                x += img.get_width() + text_width(len(grp)) + 4
+        text(surf, self.hint(), 4, y0 + 30, C['dim'])
+        portrait(surf, g.cur, self.mood_of(g.cur), SW - 37, y0 + 3, hud=True)
+
+    def hint(self):
+        g, p, i, mode = self.g, self.g.cur, self.cur, self.mode
+        if g.phase == 'over':
+            return ''
+        if self.bot():
+            return f"{SIDES[p]['name']} IS ON THE MOVE..."
+        if self.script:
+            return ''
+        if mode == 'pick_buy':
+            return f"ENTER: BUILD {name(self.buy_type)} HERE ({UNITS[self.buy_type]['cost']} SOLDIERS)"
+        if mode == 'pick_dest':
+            ok = i in g.destinations(p, self.src, self.group_from(self.src, self.counts))
+            return 'ENTER: MARCH HERE' if ok else 'ENTER ON ANY OTHER OUTPOST: CANCEL'
+        if mode == 'pick_target':
+            return 'ENTER: ATTACK THIS OUTPOST' if i in g.targets(p, self.src) else 'PICK A GLOWING ENEMY OUTPOST'
+        if g.phase == 'gather':
+            if g.to_place > 0:
+                return f'ENTER: PLACE SOLDIER ({g.to_place} LEFT)' if g.can_place(p, i) else 'PLACE ON YOUR OUTPOSTS OR NEXT TO THEM'
+            return 'ENTER: BUY MENU'
+        if g.phase == 'march':
+            return 'ENTER: CHOOSE WHO MARCHES' if g.owner(i) == p and g.movable(i) else 'ENTER: COMMANDS (SKIP / END TURN)'
+        if g.turn == 1:
+            return 'FIRST TURN: DEPLOY ONLY · ENTER: END TURN'
+        return 'ENTER: ATTACK FROM HERE' if g.owner(i) == p and g.targets(p, i) else 'ENTER: COMMANDS (END TURN)'
+
+    def draw_pass(self, surf, now):
+        p = self.g.cur
+        surf.fill(pygame.Color('#0b0d08'))
+        portrait(surf, p, 'focus', SW // 2 - 28, 40)
+        text(surf, SIDES[p]['commander'], SW / 2, 102, SIDES[p]['light'], 1, 'c')
+        text(surf, f"{SIDES[p]['name']}'S TURN", SW / 2, 115, SIDES[p]['main'], 2, 'c')
+        text(surf, 'FOG OF WAR IS ON.', SW / 2, 145, C['white'], 1, 'c')
+        text(surf, f"HAND THE CONTROLS TO {SIDES[p]['name']}.", SW / 2, 157, C['white'], 1, 'c')
+        if int(now / .5) % 2:
+            text(surf, 'PRESS ENTER', SW / 2, 185, C['highlight'], 1, 'c')

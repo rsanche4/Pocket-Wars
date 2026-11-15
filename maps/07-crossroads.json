@@ -1,0 +1,16 @@
+{
+ "name": "Crossroads",
+ "theme": "grass",
+ "blurb": "Five barracks and a central crossroads. Whoever holds the middle eats well.",
+ "art": [
+  "o-o-o-o-o",
+  "| ~ | ~ |",
+  "o~G-o-G~o",
+  "| | | | |",
+  "H-o-G-o-h",
+  "| | | | |",
+  "o~G-o-G~o",
+  "| ~ | ~ |",
+  "o-o-o-o-o"
+ ]
+}

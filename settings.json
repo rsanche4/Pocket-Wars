@@ -1,0 +1,13 @@
+{
+ "mode": "cpu",
+ "cpu": "hard",
+ "fog": "blackout",
+ "timer": 0,
+ "anim": "full",
+ "sound": true,
+ "sfx_volume": 10,
+ "music": true,
+ "music_volume": 5,
+ "fullscreen": false,
+ "map": "maps/07-crossroads.json"
+}

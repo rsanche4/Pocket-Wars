@@ -1,0 +1,132 @@
+{
+ "_about": "How to Play pages: title, picture (a drawn picture, or put assets/howto/<picture>.png to use your own, 292x100), and paragraphs.",
+ "pages": [
+  {
+   "title": "GOAL",
+   "picture": "goal",
+   "text": [
+    "Destroy the enemy HQ. Nothing else wins.",
+    "Each HQ has 100 HP and never moves. It can attack enemies next door, and it always fires back.",
+    "You start with your HQ and one half-track. Green goes first; its very first turn is deploy only (no march, no attack)."
+   ]
+  },
+  {
+   "title": "OUTPOSTS",
+   "picture": "outposts",
+   "text": [
+    "Outposts are the stops on the map. One is yours while any of your units stand on it; leave it empty and it belongs to nobody again.",
+    "March onto an empty outpost to take it. You can never move onto an enemy outpost: clear it out first."
+   ]
+  },
+  {
+   "title": "STEP 1 OF 3: GATHER",
+   "picture": "gather",
+   "text": [
+    "You get 1 soldier, plus 1 for every barracks you hold.",
+    "Place them on your outposts, or on an empty outpost joined to yours by a road. The glowing rings show where.",
+    "Timer on? Soldiers you have not placed when it runs out are lost."
+   ]
+  },
+  {
+   "title": "BUYING VEHICLES",
+   "picture": "buy",
+   "text": [
+    "After placing, you may build ONE vehicle. Pay with soldiers standing on the same outpost; the vehicle appears right there.",
+    "New vehicles can march and attack that same turn."
+   ]
+  },
+  {
+   "title": "STEP 2 OF 3: MARCH",
+   "picture": "march",
+   "text": [
+    "Once per turn: pick one of your outposts, choose who goes, then pick a glowing destination.",
+    "A group moves as far as its slowest unit, only along roads and bridges, and never through enemy outposts.",
+    "Helicopters alone fly anywhere: over rivers and over the enemy."
+   ]
+  },
+  {
+   "title": "STEP 3 OF 3: ATTACK",
+   "picture": "battle",
+   "text": [
+    "Every unit may attack once, at an enemy outpost next door, even across a river.",
+    "Pick an attacker and a target. Both fire at the same time, each dealing random damage from its range.",
+    "Wipe out an outpost and you may move in for free."
+   ]
+  },
+  {
+   "title": "WHO BEATS WHO",
+   "picture": "matchups",
+   "text": [
+    "Tanks can never hit helicopters, so a helicopter attacks a tank with no return fire.",
+    "Half-tracks are anti-air: 1.5x damage against helicopters.",
+    "Hurt units hit just as hard as healthy ones."
+   ]
+  },
+  {
+   "title": "UNITS",
+   "picture": "units",
+   "text": [
+    "DMG: damage per shot. MOVE: outposts per march. SIGHT: how far it sees in fog. COST: soldiers paid to build it.",
+    "Soldiers are free and arrive every turn."
+   ]
+  },
+  {
+   "title": "DAMAGE CHART",
+   "picture": "damage",
+   "text": [
+    "Rows attack, columns get hit. 8.5 ×3 means one shot does 8.5 damage on average, and it takes 3 hits to destroy a full-health target.",
+    "YELLOW: bonus damage. RED: can't hit at all. A hurt unit hits just as hard as a healthy one."
+   ]
+  },
+  {
+   "title": "TERRAIN",
+   "picture": "terrain",
+   "text": [
+    "ROADS and BRIDGES: anyone can cross.",
+    "RIVERS: only helicopters cross, but anyone can shoot across one.",
+    "BARRACKS (+1 badge): one more soldier every turn you hold it."
+   ]
+  },
+  {
+   "title": "FOG OF WAR",
+   "picture": "fog",
+   "text": [
+    "FOG (left): you see the map, but enemy units only within your sight. BLACKOUT (right): you see nothing beyond your sight, not even the map.",
+    "Sight: 1 outpost for soldiers, tanks and HQ, 2 for half-tracks, 3 for helicopters. You can only march where you can see."
+   ]
+  },
+  {
+   "title": "CONTROLS",
+   "picture": "controls",
+   "text": [
+    "ENTER on an outpost with nothing to do opens COMMANDS: end turn, skip, game log, resign, quit.",
+    "ESC backs out of menus and choices. On the map it pauses the game, even during the CPU turn."
+   ]
+  },
+  {
+   "title": "MAP EDITOR",
+   "picture": "editor",
+   "text": [
+    "Pick MAP EDITOR on the title screen. ARROWS move over outposts and the links between them; ENTER changes what is there, or picks up an HQ to move it.",
+    "MIRROR copies each edit to the other side, so maps stay fair. The editor menu (UP from the top row, or ESC) has a step-by-step guide: HOW IT WORKS."
+   ]
+  },
+  {
+   "title": "COMMANDERS",
+   "picture": "commanders",
+   "text": [
+    "The GREEN COMMANDER leads Green and the TAN GENERAL leads Tan.",
+    "Watch their faces: they cheer a kill, wince when hit, get angry when their HQ takes fire, and look gloomy when they lose a unit."
+   ]
+  },
+  {
+   "title": "TIPS",
+   "picture": "tips",
+   "text": [
+    "Grab barracks early: they snowball.",
+    "Tank spam loses to helicopters; helicopter spam loses to half-tracks.",
+    "Sitting back loses. Attack!"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "_about": "Colours used by the screens, the two sides, and the four map themes.",
+ "title_anim_fps": 8,
+ "battle_scene_seconds": {"before": 1, "attack": 2, "after": 1},
+ "colors": {
+  "ink": "#101410", "olive": "#2f5a22", "olive_dark": "#1f3d1a", "paper": "#f6e6c0", "paper_dark": "#e8c890",
+  "highlight": "#ffe070", "red": "#e0482c", "white": "#ffffff", "grey": "#a8aa9c", "dim": "#4a4d44",
+  "background": "#0a0c07", "neutral_pad": "#ece6d6", "neutral_pad_dark": "#b9b2a0", "river_marker": "#ffffffcc",
+  "blackout": "#07090a", "blackout_dots": "#0d110a", "fog_cloud": "#e9ecef", "shore": "#f5e6b8b3"
+ },
+ "sides": [
+  {"name": "GREEN", "commander": "GREEN COMMANDER", "main": "#4a8a2c", "dark": "#1f3d1a", "light": "#9fd36a", "pad": "#4a8a2c",
+   "portrait_bg": "#2a4a1c", "portrait_lines": "#305424", "battle_bg": "#4a8a2c", "battle_lines": "#6fb04a", "battle_ground": "#2f5a22"},
+  {"name": "TAN", "commander": "TAN GENERAL", "main": "#c99a5c", "dark": "#6b4a2b", "light": "#e8c890", "pad": "#9a6e3c",
+   "portrait_bg": "#6a4a28", "portrait_lines": "#76532e", "battle_bg": "#c99a5c", "battle_lines": "#e8c890", "battle_ground": "#9a6e3c"}
+ ],
+ "themes": {
+  "grass":  {"base": "#6aa33c", "road": "#7e5c35", "water": "#4f95d6", "water_edge": "#2f6fae"},
+  "desert": {"base": "#d8b97b", "road": "#a07c4a", "water": "#4a9bd0", "water_edge": "#2f78a8"},
+  "beach":  {"base": "#e5cf97", "road": "#7e5c35", "water": "#2f86c4", "water_edge": "#1f6fae"},
+  "snow":   {"base": "#e3edf6", "road": "#9db6cc", "water": "#a8cdea", "water_edge": "#6f9fc6"}
+ }
+}

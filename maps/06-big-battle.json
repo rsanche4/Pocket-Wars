@@ -1,0 +1,14 @@
+{
+ "name": "Big Battle",
+ "theme": "grass",
+ "blurb": "The full war: a river with two bridges, creeks, and four barracks.",
+ "art": [
+  "o-o-o=G-o-o",
+  "| | | ~ | |",
+  "o-G-o~o-o-h",
+  "| ~ |X| ~ |",
+  "H-o-o~o-G-o",
+  "| | ~ | | |",
+  "o-o-G=o-o-o"
+ ]
+}

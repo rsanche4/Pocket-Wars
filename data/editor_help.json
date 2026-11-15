@@ -1,0 +1,55 @@
+{
+ "_about": "Map editor guide (editor menu > HOW IT WORKS): title, picture, paragraphs. Pictures are the real editor playing a demo; put assets/howto/<picture>.png to use your own.",
+ "pages": [
+  {
+   "title": "THE GRID",
+   "picture": "ed_grid",
+   "text": [
+    "Your map is a grid of spots. The round dots are OUTPOST spots, the lines between them are LINK spots, and the gaps between four outposts are DIAGONAL spots.",
+    "ARROWS move the yellow corners. The bottom bar always says what the spot is and what ENTER will do."
+   ]
+  },
+  {
+   "title": "OUTPOSTS",
+   "picture": "ed_outposts",
+   "text": [
+    "ENTER on an outpost spot cycles it: NONE, OUTPOST, BARRACKS, then back to NONE.",
+    "NONE leaves a hole in the map. A BARRACKS (+1) gives one extra soldier every turn to whoever holds it."
+   ]
+  },
+  {
+   "title": "LINKS",
+   "picture": "ed_links",
+   "text": [
+    "ENTER on a link spot cycles it: NONE, ROAD, RIVER, BRIDGE.",
+    "Roads and bridges let everyone pass. Rivers only let helicopters cross, but units can shoot across.",
+    "On a diagonal spot, ENTER adds diagonal roads: one way, the other, or both."
+   ]
+  },
+  {
+   "title": "MOVING AN HQ",
+   "picture": "ed_hq",
+   "text": [
+    "Each side always has exactly one HQ. ENTER on an HQ picks it up, and it floats with your cursor.",
+    "Press ENTER on any outpost spot to drop it there; the spot it left becomes a plain outpost. ESC puts it back."
+   ]
+  },
+  {
+   "title": "MIRROR",
+   "picture": "ed_mirror",
+   "text": [
+    "With MIRROR ON, every change is copied to the opposite side, turned around, so both armies get the same map. Moving one HQ moves the other too.",
+    "Turn MIRROR off in the menu to build an uneven scenario."
+   ]
+  },
+  {
+   "title": "SAVE AND PLAY",
+   "picture": "ed_menu",
+   "text": [
+    "Go UP from the top row (or press ESC) for the menu: save, size, theme and name.",
+    "SAVE writes the map into the my-maps folder. Play it from CHOOSE A BATTLEFIELD (marked with a *).",
+    "Share a map by sending its file; drop a friend's file into my-maps to play it."
+   ]
+  }
+ ]
+}
