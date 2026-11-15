@@ -390,8 +390,10 @@ class Play:
             self.menu = self.move_in_menu(a, b)
         elif self.g.units[a] and self.g.units[b] and b in self.g.targets(p, a):
             self.menu = self.fight_menu(a, b)
+        elif self.g.units[a] and self.g.targets(p, a):      # can't hit b again, but another enemy is in reach
+            self.cur = self.g.targets(p, a)[0]
         else:
-            self.mode = 'cursor'
+            self.mode, self.cur = 'cursor', a if self.g.units[a] else self.cur
 
     def human_move_in(self, a, b, ids):
         yield from self.walk(a, [a, b], ids, move_in=True)
@@ -522,7 +524,7 @@ class Play:
                   'adj': lambda d: st.update(t=(st['t'] + d) % max(1, len(targets(attacker()))))},
                  {'l': '', 'info': True, 'val': odds},
                  {'l': 'FIRE!', 'col': C['red'], 'f': fire},
-                 {'l': 'BACK', 'f': lambda: setattr(self, 'mode', 'cursor')}]
+                 {'l': 'BACK', 'f': lambda: None}]          # back to choosing the target
         m = Menu('ATTACK!', items, pair=(a, b))
         m.sel = 3
         return m
@@ -575,7 +577,10 @@ class Play:
                 sound.play('adjust')
             elif k == 'b' and g.phase != 'over':
                 sound.play('back')
-                self.menu, self.mode = None, 'cursor'
+                if m.pair and self.mode == 'pick_target':
+                    self.menu = None               # attack menu: back to choosing the target
+                else:
+                    self.menu, self.mode = None, 'cursor'
             elif k == 'e':
                 if it.get('dis') or it.get('info'):
                     sound.play('error')
@@ -601,6 +606,8 @@ class Play:
             return
         if k == 'b':
             if self.mode != 'cursor':
+                if self.mode == 'pick_target':
+                    self.cur = self.src            # back to the outpost you were attacking from
                 self.mode = 'cursor'
                 sound.play('back')
             else:
@@ -633,9 +640,8 @@ class Play:
             if i in g.targets(p, self.src):
                 self.menu = self.fight_menu(self.src, i)
                 sound.play('select')
-            else:
-                sound.play('back')
-                self.mode = 'cursor'
+            else:                              # can't hit that one: stay in target picking (ESC backs out)
+                sound.play('error')
         elif g.phase == 'gather':
             if g.to_place > 0:
                 if g.can_place(p, i):
@@ -656,10 +662,8 @@ class Play:
             targets = g.targets(p, i) if g.turn > 1 and g.owner(i) == p else []
             if targets:
                 self.mode, self.src = 'pick_target', i
-                self.cur = targets[0]                  # the cursor jumps onto the enemy (as a red target)
-                if len(targets) == 1:
-                    self.menu = self.fight_menu(i, targets[0])
-                sound.play('select')
+                self.cur = targets[0]          # the cursor jumps onto an enemy and becomes a red target; you pick
+                sound.play('select')           # which one to hit (even if there is only one), ESC goes back
             else:
                 sound.play('error')
 
@@ -839,7 +843,7 @@ class Play:
             ok = i in g.destinations(p, self.src, self.group_from(self.src, self.counts))
             return 'ENTER: MARCH HERE' if ok else 'ENTER ON ANY OTHER OUTPOST: CANCEL'
         if mode == 'pick_target':
-            return 'ENTER: ATTACK THIS OUTPOST' if i in g.targets(p, self.src) else 'PICK A GLOWING ENEMY OUTPOST'
+            return 'ENTER: ATTACK THIS OUTPOST' if i in g.targets(p, self.src) else "CAN'T ATTACK THIS ONE · ESC: BACK"
         if g.phase == 'gather':
             if g.to_place > 0:
                 return f'ENTER: PLACE SOLDIER ({g.to_place} LEFT)' if g.can_place(p, i) else 'PLACE ON YOUR OUTPOSTS OR NEXT TO THEM'
