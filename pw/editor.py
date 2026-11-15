@@ -14,7 +14,7 @@ from .data import ROOT, parse_map, map_problems, reachable, save_map, default_of
     missing_defaults, restore_defaults
 from .mapgen import generate, OPTIONS, DEFAULTS
 from .gfx import C, SIDES, SW, SH, THEMES, rect, box, text, ellipse, digits
-from .menus import mini_map
+from .menus import map_card
 
 OUTPOST_CYCLE = [' ', 'o', 'G']
 ACROSS_CYCLE, DOWN_CYCLE, DIAGONAL_CYCLE = [' ', '-', '~', '='], [' ', '|', '~', '='], [' ', '\\', '/', 'X']
@@ -513,14 +513,13 @@ class MapList:
             text(surf, rows[i][0][:19], 10, y + 1, C['ink'] if i == self.sel else C['olive_dark'])
         box(surf, 132, 20, 184, 198)
         _, kind, m = rows[self.sel]
-        if kind == 'map':
-            mini_map(surf, m, 135, 23, 178, 110)
-            text(surf, 'ENTER: EDIT', 224, 142, C['ink'], 1, 'c')
-            lines = ['PLAY IT FROM CHOOSE A', 'BATTLEFIELD.', '', 'ITS FILE (SEND IT TO SHARE):', os.path.basename(m.path)[:28]]
+        if kind == 'map':                         # no picture here: you see the layout once you open it
+            h = map_card(surf, m, 135, 26, 178)
+            lines = ['ENTER: OPEN IT TO SEE IT', '', 'ITS FILE (SEND IT TO SHARE):', os.path.basename(m.path)[:28]]
             if default_of(m.path):
-                lines[2:3] = ['BUILT-IN: RESET TO DEFAULT', 'IS IN THE EDITOR MENU.', '']
+                lines[1:2] = ['', 'BUILT-IN: RESET TO DEFAULT', 'IS IN THE EDITOR MENU.', '']
             for k, line in enumerate(lines):
-                text(surf, line, 224, 156 + k * 10, C['olive'] if k == len(lines) - 1 else C['dim'], 1, 'c')
+                text(surf, line, 224, 30 + h + k * 10, C['ink'] if k == 0 else C['olive'] if k == len(lines) - 1 else C['dim'], 1, 'c')
         elif kind == 'new':
             lines = ['BUILD YOUR OWN', 'BATTLEFIELD.', '', 'ARROWS: MOVE OVER', 'OUTPOSTS AND LINKS', 'ENTER: CHANGE THEM', '',
                      'ENTER ON AN HQ PICKS IT', 'UP SO YOU CAN MOVE IT.', '', 'NEW TO IT? OPEN THE MENU', '(UP FROM THE TOP ROW)',
@@ -630,18 +629,11 @@ class Generator:
             if it.get('val'):
                 text(surf, it['val'], 144, y + 1, col, 1, 'r')
             y += 13
-        m, d = self.m, self.d
-        box(surf, 154, 20, 162, 198)
-        mini_map(surf, m, 157, 23, 156, 100)
-        text(surf, d['name'], 235, 130, C['ink'], 1, 'c')
-        cols, rows = (len(d['art'][0]) + 1) // 2, (len(d['art']) + 1) // 2
-        art = ''.join(d['art'])
-        bridges = art.count('=')
-        for k, line in enumerate([f'{cols} X {rows} · {len(m.nodes)} OUTPOSTS',
-                                  f"{art.count('G')} BARRACKS · {bridges} BRIDGE{'' if bridges == 1 else 'S'}",
-                                  f"{art.count('~')} RIVER CROSSINGS", '',
-                                  '◀ ▶ CHANGE A SETTING', 'REROLL: ANOTHER MAP', 'EDIT IT: TWEAK, THEN SAVE']):
-            text(surf, line, 235, 144 + k * 10, C['dim'] if k < 3 else C['olive'], 1, 'c')
+        box(surf, 154, 20, 162, 198)                  # what the map is like, not what it looks like
+        text(surf, self.d['name'], 235, 26, C['ink'], 1, 'c')
+        h = map_card(surf, self.m, 157, 38, 156)
+        for k, line in enumerate(['◀ ▶ CHANGE A SETTING', 'REROLL: ANOTHER MAP', 'EDIT IT: SEE AND TWEAK IT', 'SAVE IT: READY TO PLAY']):
+            text(surf, line, 235, 46 + h + k * 10, C['olive'], 1, 'c')
 
 
 # ---------------------------------------------------------------- demos for the guides (the real editor, scripted)

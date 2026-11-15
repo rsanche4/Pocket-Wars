@@ -11,9 +11,13 @@ py tools/make_ui.py target arrow_head)
   arrow_body.png        the march arrow's body as a SLICE ACROSS it: the left column, top to bottom, is
                         outline / fill / outline. The game sweeps that slice along the road (round at the bends),
                         so only the colours and thickness matter. Make it as tall as you want the arrow to be thick.
-  arrow_head.png        the arrowhead, pointing RIGHT; its right edge is the tip. The game turns it to face the way.
+  arrow_head.png        the arrowhead, pointing RIGHT; its right edge is the tip. The game turns it to face up, down
+                        or left (quarter turns only, so the pixels never get mangled).
+  arrow_head_diagonal.png  the arrowhead on a diagonal road, pointing DOWN-RIGHT along it; its bottom-right corner is
+                        the tip. The game flips it for the other three diagonal directions.
   arrow_start.png       the dot where the arrow starts (centred on the outpost the group leaves).
 """
+import math
 import os
 import sys
 
@@ -22,6 +26,7 @@ import pygame
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 from pw.gfx import C, SIDES, SIDE_FILE        # noqa: E402  (colours from data/style.json)
+from pw.data import STEP_X, STEP_Y            # noqa: E402  (spacing of outposts: the angle of diagonal roads)
 
 OUT = os.path.join(ROOT, 'assets', 'ui')
 INK, CLEAR = C['ink'], (0, 0, 0, 0)
@@ -107,6 +112,21 @@ def arrow_head():
     return s
 
 
+def arrow_head_diagonal():
+    """The same arrowhead as arrow_head (11 long, 19 wide, 1-pixel outline) but along a diagonal road, pointing
+    down-right, with the tip in the bottom-right corner."""
+    a = math.atan2(STEP_Y, STEP_X)
+    ux, uy = math.cos(a), math.sin(a)
+    nx, ny = -uy, ux
+    pts = [(0, 0), (-ux * 11 + nx * 9, -uy * 11 + ny * 9), (-ux * 11 - nx * 9, -uy * 11 - ny * 9)]
+    x0, y0 = min(x for x, _ in pts), min(y for _, y in pts)
+    pts = [(round(x - x0), round(y - y0)) for x, y in pts]
+    s = surface(max(x for x, _ in pts) + 1, max(y for _, y in pts) + 1)
+    pygame.draw.polygon(s, C['phase_march'], pts)
+    pygame.draw.polygon(s, INK, pts, 1)
+    return s
+
+
 def arrow_start():
     s = surface(9, 9)
     pygame.draw.circle(s, INK, (4, 4), 4)
@@ -115,7 +135,8 @@ def arrow_start():
 
 
 RECIPES = {'target': target, 'target_off': target_off, 'dust': dust,
-           'arrow_body': arrow_body, 'arrow_head': arrow_head, 'arrow_start': arrow_start}
+           'arrow_body': arrow_body, 'arrow_head': arrow_head, 'arrow_head_diagonal': arrow_head_diagonal,
+           'arrow_start': arrow_start}
 for _side in range(2):
     RECIPES['parachute_' + SIDE_FILE[_side]] = lambda side=_side: parachute(side)
 

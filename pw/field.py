@@ -203,29 +203,35 @@ class Field:
 
     def draw_route(self, surf, cam, path):
         """An Advance Wars style arrow along a march path. ui/arrow_body.png is a slice across the arrow (its left
-        column, top to bottom), swept along the road; ui/arrow_head.png points right and is turned to face the way."""
+        column, top to bottom), swept along the road. The head is ui/arrow_head.png (pointing right, turned a quarter
+        at a time) on straight roads and ui/arrow_head_diagonal.png (pointing down-right, flipped) on diagonal ones."""
         pts = [self.screen_pos(i, cam) for i in path]
         if len(pts) < 2:
             return
-        body, head, dot = image('ui/arrow_body.png'), image('ui/arrow_head.png'), image('ui/arrow_start.png')
+        body, dot = image('ui/arrow_body.png'), image('ui/arrow_start.png')
         (ax, ay), (bx, by) = pts[-2], pts[-1]
         d = math.hypot(bx - ax, by - ay) or 1
         ux, uy = (bx - ax) / d, (by - ay) / d
         tip = (bx - ux * 3, by - uy * 3)                 # the tip stops just short of the outpost's middle
-        hw = head.get_width()
-        line = pts[:-1] + [(tip[0] - ux * hw * .5, tip[1] - uy * hw * .5)]
+        sx, sy = (bx > ax) - (bx < ax), (by > ay) - (by < ay)
+        if sx and sy:                                    # diagonal: flip the down-right head; its tip is that corner
+            head = pygame.transform.flip(image('ui/arrow_head_diagonal.png'), sx < 0, sy < 0)
+            w, h = head.get_size()
+            x0, y0 = tip[0] - (w - 1 if sx > 0 else 0), tip[1] - (h - 1 if sy > 0 else 0)
+        else:                                            # straight: quarter turns of the right-pointing head
+            right = image('ui/arrow_head.png')
+            head = pygame.transform.rotate(right, 90 * round(math.degrees(math.atan2(-uy, ux)) / 90))
+            w, h = head.get_size()
+            cx, cy = tip[0] - ux * right.get_width() / 2, tip[1] - uy * right.get_width() / 2
+            x0, y0 = cx - w / 2, cy - h / 2
+        line = pts[:-1] + [(x0 + w / 2, y0 + h / 2)]      # the body runs into the middle of the head
         blit(surf, dot, pts[0][0] - dot.get_width() / 2, pts[0][1] - dot.get_height() / 2)
         slice_ = [body.get_at((0, r)) for r in range(body.get_height())]
         for k in range((len(slice_) + 1) // 2):          # outside layer first, then each layer inside it
             width, c = len(slice_) - 2 * k, slice_[k]
-            if c.a == 0:
-                continue
-            pygame.draw.lines(surf, c, False, line, width)
-            for pt in line:                                # round at the bends
-                pygame.draw.circle(surf, c, pt, width / 2)
-        turned = pygame.transform.rotate(head, math.degrees(math.atan2(-uy, ux)))
-        cx, cy = tip[0] - ux * hw / 2, tip[1] - uy * hw / 2
-        blit(surf, turned, cx - turned.get_width() / 2, cy - turned.get_height() / 2)
+            if c.a:
+                strip(surf, c, line, width)
+        blit(surf, head, x0, y0)
 
     def draw_ghost(self, surf, cam, i, side, now):
         """A see-through soldier on a parachute hovering over outpost i: where the next reinforcement will land."""
@@ -259,6 +265,19 @@ class Field:
         head = y - soldier.get_height()
         blit(surf, chute, x - chute.get_width() / 2, head + 4 - chute.get_height(), alpha)    # cords meet at the head
         blit(surf, soldier, x - soldier.get_width() // 2, head, alpha)
+
+
+def strip(surf, color, line, width):
+    """A band exactly `width` pixels thick along a line of points, rounded at the bends. (pygame's own thick lines
+    get thinner and ragged at an angle, which made diagonal arrows look broken.)"""
+    half = (width - 1) / 2
+    for (x1, y1), (x2, y2) in zip(line, line[1:]):
+        d = math.hypot(x2 - x1, y2 - y1)
+        if d:
+            nx, ny = -(y2 - y1) / d * half, (x2 - x1) / d * half
+            pygame.draw.polygon(surf, color, [(x1 + nx, y1 + ny), (x2 + nx, y2 + ny), (x2 - nx, y2 - ny), (x1 - nx, y1 - ny)])
+    for x, y in line:
+        pygame.draw.circle(surf, color, (round(x), round(y)), width / 2)
 
 
 def frames(img):

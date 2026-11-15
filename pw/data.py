@@ -113,6 +113,71 @@ def map_problems(m):
     return out
 
 
+def road_steps(m, a, b):
+    """How many road links an army walks from outpost a to b (99 if it can't)."""
+    adj = {i: [] for i in range(len(m.nodes))}
+    for e in m.links:
+        if e.kind == 'road':
+            adj[e.a].append(e.b)
+            adj[e.b].append(e.a)
+    dist, todo = {a: 0}, [a]
+    for i in todo:
+        for j in adj[i]:
+            if j not in dist:
+                dist[j] = dist[i] + 1
+                todo.append(j)
+    return dist.get(b, 99)
+
+
+def map_info(m):
+    """What a map is like, without showing it (so nobody learns the layout before a fog-of-war battle):
+    for each of size, barracks, water, roads and HQ gap a level of 0-5 pips and a word, plus a few 'vibe' tags."""
+    n = max(1, len(m.nodes))
+    barracks = sum(x.barracks for x in m.nodes)
+    rivers = sum(e.kind == 'river' for e in m.links)
+    bridges = sum(e.bridge for e in m.links)
+    roads = sum(e.kind == 'road' for e in m.links)
+    shortcuts = sum({'/': 1, '\\': 1, 'X': 2}.get(ch, 0) for r, row in enumerate(m.art) for c, ch in enumerate(row) if r % 2 and c % 2)
+    clamp = lambda v: max(0, min(5, round(v)))
+    greens = [i for i, x in enumerate(m.nodes) if x.hq == 0]
+    tans = [i for i, x in enumerate(m.nodes) if x.hq == 1]
+    steps = road_steps(m, greens[0], tans[0]) if greens and tans else 99
+    heli_only = n - len(reachable(m, greens[0], roads_only=True)) if greens else 0
+    water = rivers / max(1, rivers + roads)
+    open_ = roads / n
+    size, size_pips = (('SMALL', 1) if n < 15 else ('MEDIUM', 2) if n < 24 else ('LARGE', 3) if n < 32 else
+                       ('LARGE', 4) if n < 40 else ('HUGE', 5))
+    wet = clamp(water * 12) if rivers else 0
+    cols, rows_ = (max(len(r) for r in m.art) + 1) // 2, (len(m.art) + 1) // 2
+    rows = [
+        ('SIZE', size_pips, size),
+        ('BARRACKS', clamp(barracks / n * 20), str(barracks)),
+        ('WATER', max(wet, 1 if rivers else 0), ['NONE', 'A LITTLE', 'SOME', 'PLENTY', 'LOTS', 'LOTS'][max(wet, 1 if rivers else 0)]),
+        ('ROADS', clamp((open_ - .9) * 6), 'TWISTY' if open_ < 1.25 else 'OPEN' if open_ < 1.6 else 'WIDE OPEN'),
+        ('HQ GAP', clamp(steps - 2) if steps < 99 else 0, 'NO ROAD' if steps == 99 else 'NEAR' if steps <= 4 else 'MIDDLE' if steps <= 6 else 'FAR'),
+    ]
+    tags = []
+    if steps <= 4:
+        tags.append('CLOSE QUARTERS')
+    elif 8 <= steps < 99:
+        tags.append('LONG MARCH')
+    if barracks / n >= .2:
+        tags.append('BARRACKS RACE')
+    if water >= .25:
+        tags.append('RIVER COUNTRY')
+    if rivers >= 3 and 0 < bridges <= 2:
+        tags.append('CHOKEPOINTS')
+    if heli_only:
+        tags.append('HELICOPTER ISLANDS')
+    if shortcuts:
+        tags.append('SHORTCUTS')
+    if not rivers and open_ >= 1.4:
+        tags.append('OPEN FIELD')
+    if cols >= rows_ * 2.5:
+        tags.append('LONG AND NARROW')
+    return {'rows': rows, 'tags': tags[:3] or ['CLASSIC'], 'outposts': n}
+
+
 def reachable(m, start, roads_only):
     adj = {i: [] for i in range(len(m.nodes))}
     for e in m.links:

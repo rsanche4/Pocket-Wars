@@ -10,7 +10,7 @@ After every change the map must still be fair to play (see playable()), or that 
 """
 import random
 
-from .data import parse_map, map_problems, reachable
+from .data import parse_map, map_problems, reachable, road_steps
 
 OPTIONS = {
     'size': ['SMALL', 'MEDIUM', 'LARGE', 'HUGE'],
@@ -271,19 +271,3 @@ class Builder:
 def near(y, x, h, w):
     """The outpost spots one road away (across, down or diagonal)."""
     return [(y + dy, x + dx) for dy in (-2, 0, 2) for dx in (-2, 0, 2) if (dy or dx) and 0 <= y + dy < h and 0 <= x + dx < w]
-
-
-def road_steps(m, a, b):
-    """How many road links an army walks from outpost a to b (a big number if it can't)."""
-    adj = {i: [] for i in range(len(m.nodes))}
-    for e in m.links:
-        if e.kind == 'road':
-            adj[e.a].append(e.b)
-            adj[e.b].append(e.a)
-    dist, todo = {a: 0}, [a]
-    for i in todo:
-        for j in adj[i]:
-            if j not in dist:
-                dist[j] = dist[i] + 1
-                todo.append(j)
-    return dist.get(b, 99)

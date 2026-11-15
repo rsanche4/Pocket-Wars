@@ -78,8 +78,11 @@ again overwrites them, so pass names to remake only some, e.g. `py tools/make_ui
 - `arrow_body.png`: the march arrow's body as a slice across it. Only its left column counts: top to bottom it's
   outline, fill, outline (any stripes you like); the game sweeps it along the road and rounds it at the bends.
   Its height is the arrow's thickness.
-- `arrow_head.png`: the arrowhead, pointing right with the tip on its right edge; the game turns it to face the
-  way. `arrow_start.png`: the dot where the arrow starts.
+- `arrow_head.png`: the arrowhead on straight roads, pointing right with the tip on its right edge; the game
+  turns it a quarter at a time to face up, down or left.
+- `arrow_head_diagonal.png`: the arrowhead on diagonal roads, pointing down-right along the road with the tip in
+  its bottom-right corner; the game flips it for the other three diagonal directions.
+- `arrow_start.png`: the dot where the arrow starts.
 
 The phase colours (rings, the top-bar tag and the big splash) are in `data/style.json`: `phase_gather` gold,
 `phase_march` blue, `phase_attack` orange (choosing where to attack from), `phase_target` red (choosing a target).

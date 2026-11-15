@@ -2,8 +2,8 @@
 import pygame
 
 from . import sound, learn
-from .data import map_problems
-from .gfx import C, SIDES, SW, SH, THEMES, rect, box, text, wrap
+from .data import map_problems, map_info
+from .gfx import C, SW, SH, THEMES, rect, box, text, wrap
 from .settings import S, save
 
 
@@ -12,35 +12,29 @@ def cycle(options, value, d):
     return options[(i + d) % len(options)]
 
 
-def mini_map(surf, m, x, y, w, h):
-    """A small plan of a map: roads, rivers, bridges, outposts, barracks and HQs."""
-    t = THEMES[m.theme]
-    rect(surf, x, y, w, h, t['base'])
-    s = min((w - 8) / m.w, (h - 8) / m.h)
-    ox, oy = x + (w - m.w * s) / 2, y + (h - m.h * s) / 2
-    at = lambda n: (round(ox + n.x * s), round(oy + n.y * s))
-    for e in m.links:
-        a, b = at(m.nodes[e.a]), at(m.nodes[e.b])
-        if e.kind == 'road':
-            pygame.draw.line(surf, t['road'], a, b, 2)
-        else:
-            for k in range(0, 10):                      # dotted river link
-                if k % 2 == 0:
-                    pygame.draw.line(surf, t['water'], (a[0] + (b[0] - a[0]) * k / 10, a[1] + (b[1] - a[1]) * k / 10),
-                                     (a[0] + (b[0] - a[0]) * (k + 1) / 10, a[1] + (b[1] - a[1]) * (k + 1) / 10))
-        if e.bridge:
-            rect(surf, (a[0] + b[0]) / 2 - 1, (a[1] + b[1]) / 2 - 1, 3, 3, pygame.Color('#7a5230'))
-    for n in m.nodes:
-        nx, ny = at(n)
-        if n.hq >= 0:
-            rect(surf, nx - 3, ny - 3, 7, 7, C['ink'])
-            rect(surf, nx - 2, ny - 2, 5, 5, SIDES[n.hq]['main'])
-        elif n.barracks:
-            rect(surf, nx - 2, ny - 2, 5, 5, pygame.Color('#8a5a00'))
-            rect(surf, nx - 1, ny - 1, 3, 3, C['highlight'])
-        else:
-            rect(surf, nx - 1, ny - 1, 3, 3, C['ink'])
-            rect(surf, nx, ny, 1, 1, C['white'])
+def map_card(surf, m, x, y, w):
+    """What a map is like, without showing its layout (no peeking before a fog-of-war battle; open a map in the
+    editor to see it): its terrain, five 0-5 ratings and a few tags. Returns the height used."""
+    info, t = map_info(m), THEMES[m.theme]
+    text(surf, 'TERRAIN', x + 4, y + 2, C['dim'])
+    for k, c in enumerate((t['base'], t['road'], t['water'])):          # a swatch of the theme's colours
+        rect(surf, x + 50 + k * 9, y + 1, 9, 9, C['ink'])
+        rect(surf, x + 51 + k * 9, y + 2, 7, 7, c)
+    text(surf, m.theme.upper(), x + w - 4, y + 2, C['ink'], 1, 'r')
+    yy = y + 15
+    for label, pips, word in info['rows']:
+        text(surf, label, x + 4, yy, C['dim'])
+        for k in range(5):
+            rect(surf, x + 56 + k * 7, yy, 6, 7, C['ink'])
+            rect(surf, x + 57 + k * 7, yy + 1, 4, 5, C['olive'] if k < pips else C['paper'])
+        if label == 'SIZE' and w >= 180:
+            word = f"{word} ({info['outposts']})"
+        text(surf, word, x + w - 4, yy, C['ink'], 1, 'r')
+        yy += 12
+    for line in wrap(' · '.join(info['tags']), max(10, (w - 8) // 6)):
+        text(surf, line, x + w / 2, yy + 3, C['olive'], 1, 'c')
+        yy += 9
+    return yy + 3 - y
 
 
 class ChooseMap:
@@ -92,20 +86,15 @@ class ChooseMap:
             box(surf, 112, 20, 204, 126)
             text(surf, 'BACK TO TITLE', 214, 80, C['ink'], 1, 'c')
             return
-        m = maps[self.sel]
+        m = maps[self.sel]                       # no picture of the map: its layout stays a surprise
         box(surf, 112, 20, 204, 126)
-        mini_map(surf, m, 115, 23, 198, 120)
+        map_card(surf, m, 115, 26, 198)
         box(surf, 112, 150, 204, 86)
         text(surf, m.name, 118, 155, C['ink'])
-        n = len(m.nodes)
-        text(surf, 'LARGE' if n >= 24 else 'MEDIUM' if n >= 15 else 'SMALL', SW - 10, 155, C['dim'], 1, 'r')
         problem = map_problems(m)
         blurb = f"CAN'T BE PLAYED YET: {problem[0]}. FIX IT IN THE MAP EDITOR." if problem else m.blurb
-        for k, line in enumerate(wrap(blurb, 32)[:4]):
-            text(surf, line, 118, 167 + k * 9, C['red'] if problem else C['dim'])
-        bridges = sum(e.bridge for e in m.links)
-        text(surf, f'{n} OUTPOSTS · {sum(x.barracks for x in m.nodes)} BARRACKS', 118, 207, C['ink'])
-        text(surf, f"{sum(e.kind == 'river' for e in m.links)} RIVER CROSSINGS · {bridges} BRIDGE{'' if bridges == 1 else 'S'}", 118, 217, C['ink'])
+        for k, line in enumerate(wrap(blurb, 32)[:7]):
+            text(surf, line, 118, 168 + k * 9, C['red'] if problem else C['dim'])
 
 
 class ListScreen:
