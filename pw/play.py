@@ -346,28 +346,36 @@ class Play:
         self.mode = 'cursor'
 
     # ------------------------------------------------------------------ menus
-    def open_commands(self, quiet=False):
+    def turn_items(self):
+        """The things you can do with your turn right now (skip ahead, end it, read the log)."""
         g = self.g
-        if not quiet:
-            sound.play('open')
         items = []
         if g.phase == 'gather' and g.to_place == 0:
             items.append({'l': 'BUY / NEXT', 'f': self.open_buy})
         if g.phase == 'march':
             items.append({'l': 'SKIP MARCH', 'f': self.to_attack})
         items += [{'l': 'END TURN', 'f': self.end_turn},
-                  {'l': 'GAME LOG', 'f': lambda: setattr(self, 'menu', self.log_menu())},
-                  {'l': 'RESIGN', 'f': self.ask_resign},
-                  {'l': 'QUIT TO MENU', 'f': lambda: setattr(self, 'menu', Menu('QUIT THIS BATTLE?', [
-                      {'l': 'NO, KEEP PLAYING', 'f': lambda: None}, {'l': 'YES, QUIT', 'f': self.app.main_menu}]))},
-                  {'l': 'CLOSE', 'f': lambda: None}]
-        self.menu = Menu('COMMANDS', items)
+                  {'l': 'GAME LOG', 'f': lambda: setattr(self, 'menu', self.log_menu())}]
+        return items
+
+    def leave_items(self):
+        return [{'l': 'RESIGN', 'f': self.ask_resign},
+                {'l': 'QUIT TO MENU', 'f': lambda: setattr(self, 'menu', Menu('QUIT THIS BATTLE?', [
+                    {'l': 'NO, KEEP PLAYING', 'f': lambda: None}, {'l': 'YES, QUIT', 'f': self.app.main_menu}]))}]
+
+    def open_commands(self, quiet=False):
+        if not quiet:
+            sound.play('open')
+        self.menu = Menu('COMMANDS', self.turn_items() + self.leave_items() + [{'l': 'CLOSE', 'f': lambda: None}])
 
     def open_pause(self):
         sound.play('open')
         self.mode = 'cursor'
-        self.menu = Menu('PAUSED', [{'l': 'RESUME', 'f': lambda: None}, {'l': 'RESIGN', 'f': self.ask_resign},
-                                    {'l': 'QUIT TO MENU', 'f': self.app.main_menu}])
+        busy = self.script is not None or self.bot()      # CPU's turn or something animating: only pause options
+        items = [{'l': 'RESUME', 'f': lambda: None}]
+        if not busy:
+            items += self.turn_items()
+        self.menu = Menu('PAUSED', items + self.leave_items())
 
     def ask_resign(self):
         p = self.human_side()

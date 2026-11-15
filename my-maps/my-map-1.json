@@ -1,0 +1,16 @@
+{
+ "name": "MY MAP 1",
+ "theme": "desert",
+ "blurb": "A custom battlefield.",
+ "art": [
+  "o-o-G-o-o-o",
+  "| | | | ~ |",
+  "o-G~ -h- -o",
+  "| | ~ | ~ |",
+  "G-H~ ~ ~o-o",
+  "~ ~ ~ | | |",
+  " ~ -o-o-o-o",
+  "| | | | | |",
+  "o-o-o-o-o-o"
+ ]
+}

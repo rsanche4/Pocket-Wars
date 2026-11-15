@@ -8,6 +8,6 @@
  "sfx_volume": 10,
  "music": true,
  "music_volume": 5,
- "fullscreen": false,
- "map": "maps/07-crossroads.json"
+ "fullscreen": true,
+ "map": "my-maps/my-map-1.json"
 }
