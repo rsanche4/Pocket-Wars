@@ -1,13 +1,13 @@
 {
- "games": 1,
- "you_won": 0,
+ "games": 5,
+ "you_won": 1,
  "styles": {
   "balanced": {
    "won": 0,
    "lost": 0
   },
   "aggressive": {
-   "won": 0,
+   "won": 2,
    "lost": 0
   },
   "defensive": {
@@ -15,12 +15,12 @@
    "lost": 0
   },
   "air power": {
-   "won": 1,
+   "won": 2,
    "lost": 0
   },
   "armor": {
    "won": 0,
-   "lost": 0
+   "lost": 1
   },
   "land grab": {
    "won": 0,
@@ -28,11 +28,11 @@
   }
  },
  "you": {
-  "turns": 9,
+  "turns": 54,
   "built": {
-   "halftrack": 1,
-   "tank": 0,
-   "helicopter": 1
+   "halftrack": 15,
+   "tank": 4,
+   "helicopter": 11
   }
  }
 }
