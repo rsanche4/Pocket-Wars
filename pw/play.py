@@ -394,22 +394,33 @@ class Play:
         items.append({'l': 'DONE: END TURN' if g.turn == 1 else 'NEXT: MARCH', 'f': self.to_march})
         self.menu = Menu('BUY ONE VEHICLE?', items, sub='SPEND SOLDIERS ON ONE OUTPOST')
 
-    def group_from(self, i, counts):
-        out = []
-        for t in ORDER:
-            out += sorted([u for u in self.g.units[i] if u.type == t], key=lambda u: -u.hp)[:counts.get(t, 0)]
-        return out
+    def unit_groups(self, units):
+        """Units grouped by (type, HP, already fired this turn) - units in one group are interchangeable.
+        Returns the groups and their keys in menu order: by type, ready first, healthiest first."""
+        groups = {}
+        for u in units:
+            if u.type != 'hq':
+                groups.setdefault((u.type, u.hp, u.id in self.g.used), []).append(u)
+        return groups, sorted(groups, key=lambda k: (ORDER.index(k[0]), k[2], -k[1]))
 
-    def counter(self, label_type, counts, most):
+    def group_from(self, i, counts):
+        """The units at outpost i picked in a WHO MARCHES? menu (counts: group key -> how many)."""
+        groups, keys = self.unit_groups(self.g.units[i])
+        return [u for k in keys for u in groups[k][:counts.get(k, 0)]]
+
+    def counter(self, k, counts, most):
+        """A menu row choosing how many units of group k (type, HP, fired) to send."""
+        t, hp, fired = k
+
         def adj(d):
-            counts[label_type] = max(0, min(most, counts[label_type] + d))
-        return {'l': name(label_type), 'icon': label_type, 'side': self.g.cur,
-                'val': lambda: f'◀ {counts[label_type]}/{most} ▶', 'adj': adj}
+            counts[k] = max(0, min(most, counts[k] + d))
+        return {'l': f"{name(t)} {hp}HP{' (FIRED)' if fired else ''}", 'icon': t, 'side': self.g.cur,
+                'val': lambda: f'◀ {counts[k]}/{most} ▶', 'adj': adj}
 
     def group_menu(self, i, counts=None):
-        g = self.g
+        groups, keys = self.unit_groups(self.g.units[i])
         if counts is None:
-            counts = {t: g.count(i, t) for t in ORDER}
+            counts = {k: len(groups[k]) for k in keys}
 
         def go():
             if not self.group_from(i, counts):
@@ -418,9 +429,9 @@ class Play:
                 return
             self.mode, self.src, self.counts, self.menu = 'pick_dest', i, counts, None
 
-        items = [self.counter(t, counts, g.count(i, t)) for t in ORDER if g.count(i, t)]
+        items = [self.counter(k, counts, len(groups[k])) for k in keys]
         items += [{'l': 'MOVE ▶', 'f': go}, {'l': 'CANCEL', 'f': lambda: None}]
-        return Menu('WHO MARCHES?', items, sub='◀ ▶ CHANGE HOW MANY')
+        return Menu('WHO MARCHES?', items, sub='◀ ▶ CHANGE HOW MANY', wide=True)
 
     def fight_menu(self, a, b):
         g = self.g
@@ -466,11 +477,7 @@ class Play:
     def move_in_menu(self, a, b, counts=None):
         """Pick who moves in. Units are grouped by type, health and whether they already fired this turn,
         so you choose e.g. the healthy soldiers and leave the hurt ones behind."""
-        g = self.g
-        groups = {}
-        for u in g.move_in_choices(a, b):
-            groups.setdefault((u.type, u.hp, u.id in g.used), []).append(u)
-        keys = sorted(groups, key=lambda k: (ORDER.index(k[0]), k[2], -k[1]))     # by type, ready first, healthiest first
+        groups, keys = self.unit_groups(self.g.move_in_choices(a, b))
         if counts is None:      # start with half the soldiers (or one unit), ready and healthy ones first
             counts = {k: 0 for k in keys}
             pool = [k for k in keys if k[0] == 'soldier'] or keys[:1]
@@ -487,16 +494,7 @@ class Play:
                 return
             self.run(self.human_move_in(a, b, ids))
 
-        def row(k):
-            t, hp, fired = k
-            most = len(groups[k])
-
-            def adj(d):
-                counts[k] = max(0, min(most, counts[k] + d))
-            return {'l': f"{name(t)} {hp}HP{' (FIRED)' if fired else ''}", 'icon': t, 'side': g.cur,
-                    'val': lambda: f'◀ {counts[k]}/{most} ▶', 'adj': adj}
-
-        items = [row(k) for k in keys]
+        items = [self.counter(k, counts, len(groups[k])) for k in keys]
         items += [{'l': 'MOVE IN', 'f': go}, {'l': 'STAY PUT', 'f': lambda: setattr(self, 'mode', 'cursor')}]
         return Menu('OUTPOST CLEARED!', items, sub='MOVE IN FOR FREE?  ◀ ▶ HOW MANY', wide=True)
 
