@@ -50,7 +50,7 @@
    "text": [
     "Every unit may attack once, at an enemy outpost next door, even across a river.",
     "Pick an attacker and a target. Both fire at the same time, each dealing random damage from its range.",
-    "Wipe out an outpost and you may move in for free."
+    "Wipe out an outpost and you may move in for free (ESC hides that choice while you look around)."
    ]
   },
   {
@@ -99,8 +99,8 @@
    "title": "CONTROLS",
    "picture": "controls",
    "text": [
-    "ESC backs out of menus and choices. On the map it opens the menu: skip march, end turn, resign, quit.",
-    "ESC also pauses the game during the CPU turn."
+    "ESC backs out of menus and choices. On the map it opens the menu: skip march, end turn, volume, resign, quit.",
+    "ESC also pauses the game during the CPU turn (you can change the volume there too)."
    ]
   },
   {

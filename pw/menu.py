@@ -54,15 +54,20 @@ class Menu:
             if not self.items[self.sel].get('info'):
                 break
 
-    def draw(self, surf, top, height, side):
+    def size(self):
+        rows = 12 if self.wide else 9
+        return (236 if self.wide else 196), 26 + (9 if self.sub else 0) + min(len(self.items), rows) * 12 + 4
+
+    def draw(self, surf, top, height, side, at=None):
+        """Drawn centred in the area from `top`, `height` tall, or with its top-left corner at `at`."""
         w, row = (236 if self.wide else 196), 12
         items, rows = self.items, (12 if self.wide else 9)
         first = 0
         if len(items) > rows:
             first = max(0, min(len(items) - rows, self.sel - rows // 2))
         shown = items[first:first + rows]
-        h = 26 + (9 if self.sub else 0) + len(shown) * row + 4
-        x, y = round((SW - w) / 2), round(top + (height - h) / 2)
+        h = self.size()[1]
+        x, y = at or (round((SW - w) / 2), round(top + (height - h) / 2))
         box(surf, x, y, w, h)
         rect(surf, x + 2, y + 2, w - 4, 14, side['main'] if self.win is not None else C['olive'])
         text(surf, self.title, x + w / 2, y + 5, C['white'], 1, 'c', C['ink'])

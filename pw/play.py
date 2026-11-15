@@ -14,6 +14,7 @@ from .field import Field, March, Drop
 from .cutin import CutIn
 from .menu import Menu
 from .gfx import C, SIDES, SW, SH, rect, text, text_width, blit, portrait, unit_image
+from .settings import S, save
 
 TOP, BOTTOM = 13, 40
 VIEW_Y, VIEW_H = TOP, SH - TOP - BOTTOM
@@ -109,7 +110,7 @@ class Play:
 
     def say_banner(self, title, color, sub=None):
         """The big splash that slides across the screen (it never stops you from playing)."""
-        self.banner = (title, color, sub, self.now)
+        self.banner = (title, color, sub, self.now, self.g.cur)
 
     def phase_color(self):
         """The colour of what you're doing right now: gold = gather/buy, blue = march, orange = attack (choosing
@@ -126,11 +127,16 @@ class Play:
     def turn_banner(self):
         g, p = self.g, self.g.cur
         who = f"{SIDES[p]['name']} TURN {g.turn}"
+        solo = self.bots[0] != self.bots[1]           # you against the CPU: say whose turn it is in plain words
         if self.bot(p):
-            self.say_banner(who, SIDES[p]['main'])
+            if solo:
+                self.say_banner("CPU'S TURN", SIDES[p]['light'], f'{who} · WATCH ITS MOVES')
+            else:
+                self.say_banner(who, SIDES[p]['light'])
         else:
             n = g.to_place
-            self.say_banner('REINFORCEMENTS', C['phase_gather'], f"{who} · PLACE {n} SOLDIER{'' if n == 1 else 'S'}")
+            self.say_banner('REINFORCEMENTS', C['phase_gather'],
+                            f"{'YOUR TURN' if solo else who} · PLACE {n} SOLDIER{'' if n == 1 else 'S'}")
         sound.play('turn_' + SIDES[p]['name'].lower())
 
     def drop(self, i):
@@ -439,10 +445,30 @@ class Play:
         items = [{'l': 'RESUME', 'f': lambda: None}]
         if not busy:
             items += self.turn_items()
+        items += self.sound_items()
         items += [{'l': 'RESIGN', 'f': self.ask_resign},
                   {'l': 'QUIT TO MENU', 'f': lambda: setattr(self, 'menu', pausing(Menu('QUIT THIS BATTLE?', [
                       {'l': 'NO, KEEP PLAYING', 'f': lambda: None}, {'l': 'YES, QUIT', 'f': self.app.main_menu}])))}]
         self.menu = pausing(Menu('PAUSED', items))
+
+    def sound_items(self):
+        """Music and effects volume, and battle-scene speed, changed with LEFT/RIGHT without leaving the battle
+        (saved like the Options screen). Turning a volume up also switches that sound back on."""
+        def volume(label, key, on):
+            def adj(d):
+                S[key] = max(0, min(10, S[key] + d))
+                S[on] = S[key] > 0
+                save()
+            return {'l': label, 'val': lambda: f"◀ {S[key] if S[on] else 'OFF'} ▶", 'adj': adj}
+
+        def scenes(d):
+            options = ['full', 'fast', 'off']
+            S['anim'] = options[(options.index(S['anim']) + d) % 3]
+            save()
+            self.settings['anim'] = S['anim']
+            self.speed = {'full': 1, 'fast': .5, 'off': 0}[S['anim']]
+        return [volume('MUSIC VOLUME', 'music_volume', 'music'), volume('EFFECTS VOLUME', 'sfx_volume', 'sound'),
+                {'l': 'BATTLE SCENES', 'val': lambda: f"◀ {S['anim'].upper()} ▶", 'adj': scenes}]
 
     def ask_resign(self):
         p = self.human_side()
@@ -569,9 +595,15 @@ class Play:
                 return
             self.run(self.human_move_in(a, b, ids))
 
+        def look():
+            self.mode, self.peek = 'peek', (a, b, counts)
+
         items = [self.counter(k, counts, len(groups[k])) for k in keys]
-        items += [{'l': 'MOVE IN', 'f': go}, {'l': 'STAY PUT', 'f': lambda: setattr(self, 'mode', 'cursor')}]
-        return Menu('OUTPOST CLEARED!', items, sub='MOVE IN FOR FREE?  ◀ ▶ HOW MANY', wide=True)
+        items += [{'l': 'MOVE IN', 'f': go}, {'l': 'LOOK AROUND FIRST', 'f': look},
+                  {'l': 'STAY PUT', 'f': lambda: setattr(self, 'mode', 'cursor')}]
+        m = Menu('OUTPOST CLEARED!', items, sub='MOVE IN FOR FREE?  ◀ ▶ HOW MANY', wide=True, pair=(a, b))
+        m.on_back = look                 # ESC hides it to look at the map too: only STAY PUT gives up moving in
+        return m
 
     # ------------------------------------------------------------------ keys
     def key(self, k):
@@ -597,13 +629,20 @@ class Play:
                 sound.play('adjust')
             elif k == 'b' and g.phase != 'over':
                 sound.play('back')
-                if m.pair and self.mode == 'pick_target':
+                if getattr(m, 'on_back', None):
+                    self.menu = None
+                    m.on_back()
+                elif m.pair and self.mode == 'pick_target':
                     self.menu = None               # attack menu: back to choosing the target
                 else:
                     self.menu, self.mode = None, 'cursor'
             elif k == 'e':
                 if it.get('dis') or it.get('info'):
                     sound.play('error')
+                    return
+                if it.get('adj') and not it.get('f'):      # a setting or a counter: ENTER steps it like RIGHT
+                    it['adj'](1)
+                    sound.play('adjust')
                     return
                 sound.play('select')
                 self.menu = None
@@ -617,6 +656,12 @@ class Play:
             self.open_pause()
             return
         if busy:
+            return
+        if self.mode == 'peek' and k in 'eb':          # done looking: back to the move-in choice, as you left it
+            a, b, counts = self.peek
+            self.mode, self.cur = 'cursor', b
+            self.menu = self.move_in_menu(a, b, counts)
+            sound.play('select' if k == 'e' else 'back')
             return
         if k in 'udlr':
             j = self.node_toward(k)
@@ -707,6 +752,8 @@ class Play:
         g, p, h = self.g, self.g.cur, set()
         if self.bot() or self.script or self.pass_screen or g.phase == 'over' or (self.menu and not self.menu.pair):
             return h
+        if self.menu and self.mode != 'pick_target':        # OUTPOST CLEARED!: just the two outposts it's about
+            return set(self.menu.pair)
         for i in range(len(g.units)):
             if self.mode == 'pick_buy':
                 if g.owner(i) == p and g.count(i, 'soldier') >= UNITS[self.buy_type]['cost']:
@@ -721,20 +768,49 @@ class Play:
                     h.add(i)
         if self.mode == 'pick_dest':
             h |= set(g.destinations(p, self.src, self.group_from(self.src, self.counts)))
+        if self.mode == 'peek' and not self.menu:
+            h |= set(self.peek[:2])
         if self.menu and self.menu.pair:
             h |= set(self.menu.pair)
         return h
 
     def cam(self):
-        n = self.g.map.nodes[self.cur]
+        """Follows the cursor. With an attack or move-in pop-up open it looks at the two outposts instead and keeps
+        them in the top part of the view, so the pop-up can sit below them (menu_align)."""
+        nodes = self.g.map.nodes
+        x, y, frac = nodes[self.cur].x, nodes[self.cur].y, .5
+        if self.menu and self.menu.pair:
+            a, b = (nodes[i] for i in self.menu.pair)
+            x, y, frac = (a.x + b.x) / 2, (a.y + b.y) / 2, .3
         ww, wh = self.field.world.get_size()
-        tx = (ww - SW) / 2 if ww <= SW else max(0, min(ww - SW, n.x * self.k - SW / 2))
-        ty = (wh - VIEW_H) / 2 if wh <= VIEW_H else max(0, min(wh - VIEW_H, n.y * self.k - VIEW_H / 2))
+        tx = (ww - SW) / 2 if ww <= SW else max(0, min(ww - SW, x * self.k - SW / 2))
+        ty = (wh - VIEW_H) / 2 if wh <= VIEW_H else max(0, min(wh - VIEW_H, y * self.k - VIEW_H * frac))
+        self.cam_goal = (tx, ty)
         if self.camera is None:
             self.camera = [tx, ty]
         self.camera[0] += (tx - self.camera[0]) * .25
         self.camera[1] += (ty - self.camera[1]) * .25
         return round(self.camera[0]), round(self.camera[1]) - VIEW_Y
+
+    def menu_spot(self):
+        """Where a pop-up goes: centred, or for one about two outposts (attack, move in), wherever along the edges
+        of the view it covers the least of them, so you can still see both."""
+        if not self.menu.pair:
+            return None
+        w, h = self.menu.size()
+        boxes = []                                           # each outpost and the units standing on it, on screen
+        for i in self.menu.pair:
+            n = self.g.map.nodes[i]
+            x, y = n.x * self.k - self.cam_goal[0], n.y * self.k - self.cam_goal[1] + VIEW_Y   # once the camera arrives
+            boxes.append(pygame.Rect(round(x - 24), round(y - 26), 48, 44))
+        best = None
+        for k, (mx, my) in enumerate((mx, my) for my in (VIEW_Y + VIEW_H - h - 3, VIEW_Y + 3)
+                                     for mx in ((SW - w) // 2, SW - w - 3, 3)):
+            r = pygame.Rect(mx, my, w, h)
+            cover = sum(r.clip(bx).width * r.clip(bx).height for bx in boxes)
+            if best is None or cover < best[0]:
+                best = (cover, (mx, my))
+        return best[1]
 
     def draw(self, surf, now):
         now = self.battle_time(now)                  # animations freeze while paused
@@ -755,6 +831,8 @@ class Play:
                 self.field.draw_route(surf, cam, dests[self.cur])
         if mine and self.mode == 'cursor' and not self.menu and g.phase == 'gather' and g.to_place > 0                 and g.can_place(g.cur, self.cur):                # the next reinforcement, waiting to drop here
             self.field.draw_ghost(surf, cam, self.cur, g.cur, now)
+        if self.bot() and not all(self.bots) and g.phase != 'over':
+            self.draw_cpu_playing(surf, now)
         self.draw_top(surf, now, vis)
         self.draw_info(surf, vis)
         if self.banner:
@@ -763,7 +841,7 @@ class Play:
             else:
                 self.draw_banner(surf, now)
         if self.menu:
-            self.menu.draw(surf, VIEW_Y, VIEW_H, SIDES[self.menu.win if self.menu.win is not None else 0])
+            self.menu.draw(surf, VIEW_Y, VIEW_H, SIDES[self.menu.win if self.menu.win is not None else 0], self.menu_spot())
             if self.menu.win is not None:
                 w = self.menu.win
                 portrait(surf, w, 'happy', 4, VIEW_Y + 40)
@@ -777,9 +855,11 @@ class Play:
             self.cutin.draw(surf, now)
 
     def draw_banner(self, surf, now):
-        """The phase splash: a dark band opens, big letters slide in from the right, wait, and slide out left.
-        With a menu open it sits at the top of the view so it doesn't hide the menu."""
-        title, col, sub, t0 = self.banner
+        """The phase splash: a band in the playing side's colours opens, big letters (in the phase's colour) slide in
+        from the right, wait, and slide out left. With a menu open it sits at the top of the view so it doesn't hide
+        the menu."""
+        title, col, sub, t0, side = self.banner
+        s = SIDES[side]
         t = now - t0
         h = 32 if sub else 24
         band = h * min(1, t / .1, max(0, (BANNER_SECONDS - t) / .12))      # opens, then closes
@@ -787,9 +867,12 @@ class Play:
         y0 = round(mid - band / 2)
         if band < 1:
             return
-        rect(surf, 0, y0, SW, round(band), pygame.Color(10, 12, 7, 225))
-        rect(surf, 0, y0, SW, 2, col)
-        rect(surf, 0, y0 + round(band) - 2, SW, 2, col)
+        fill = pygame.Color(s['dark'])
+        fill.a = 235
+        rect(surf, 0, y0, SW, round(band), fill)
+        for y in (y0, y0 + round(band) - 3):           # edges: the side's colour with a thin line of the phase's
+            rect(surf, 0, y, SW, 3, s['main'])
+            rect(surf, 0, y + (2 if y == y0 else 0), SW, 1, col)
         ease = lambda k: 1 - (1 - max(0, min(1, k))) ** 3
         x = SW / 2 + (1 - ease(t / .22)) * SW - ease((t - (BANNER_SECONDS - .3)) / .3) * SW
         top = round(mid - h / 2)
@@ -798,6 +881,21 @@ class Play:
         if sub:
             text(surf, sub, x + (1 - ease((t - .06) / .22)) * SW * .5, top + 22, C['white'], 1, 'c')
         surf.set_clip(None)
+
+    def draw_cpu_playing(self, surf, now):
+        """While the CPU plays: a thin frame in its colour around the battlefield and a small tab under the top bar,
+        so it's always clear it isn't your turn (small, so you can still watch its moves)."""
+        s = SIDES[self.g.cur]
+        y0, y1 = VIEW_Y, VIEW_Y + VIEW_H
+        for x, y, w, h in ((0, y0, SW, 2), (0, y1 - 2, SW, 2), (0, y0, 2, VIEW_H), (SW - 2, y0, 2, VIEW_H)):
+            rect(surf, x, y, w, h, s['main'])
+        dots = '.' * (int(now * 3) % 3 + 1)
+        label = f"{s['name']} (CPU) IS PLAYING"
+        w = text_width(label + '...') + 10
+        x = round((SW - w) / 2)
+        rect(surf, x, y0, w, 12, C['ink'])
+        rect(surf, x + 1, y0, w - 2, 11, s['dark'])
+        text(surf, label + dots, x + 5, y0 + 2, s['light'])
 
     def draw_top(self, surf, now, vis):
         g, p = self.g, self.g.cur
@@ -858,6 +956,8 @@ class Play:
             return f"{SIDES[p]['name']} IS ON THE MOVE..."
         if self.script:
             return ''
+        if mode == 'peek':
+            return 'LOOKING AROUND · ENTER/ESC: BACK TO MOVE IN'
         if mode == 'pick_buy':
             return f"ENTER: BUILD {name(self.buy_type)} HERE ({UNITS[self.buy_type]['cost']} SOLDIERS)"
         if mode == 'pick_dest':

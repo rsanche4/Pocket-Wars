@@ -38,12 +38,6 @@ def thick_line(s, color, a, b, width):
         pygame.draw.circle(s, color, p, width // 2)
 
 
-def seg_dist(px, py, ax, ay, bx, by):
-    dx, dy = bx - ax, by - ay
-    t = max(0, min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy or 1)))
-    return math.hypot(ax + t * dx - px, ay + t * dy - py)
-
-
 def build_world(m, k):
     """The map's ground as one image, k = screen pixels per map unit."""
     w, h = math.ceil(m.w * k), math.ceil(m.h * k)
@@ -61,15 +55,23 @@ def build_world(m, k):
             water.append((mx, my - STEP_Y / 2 - 4, mx, my + STEP_Y / 2 + 4) if abs(a.y - b.y) < 1 else (mx - STEP_X / 2 - 4, my, mx + STEP_X / 2 + 4, my))
 
     world = pygame.Surface((w, h))
+    wet = pygame.Surface((w, h), pygame.SRCALPHA)          # where scenery mustn't stand: water and shores
+    roads = pygame.Surface((w, h), pygame.SRCALPHA)        # and what it mustn't cover at all
     if m.theme == 'beach':     # sea everywhere, an island around each outpost, sand along the roads between them
         world.blit(tiled((w, h), tile('water')), (0, 0))
         land = pygame.Surface((w, h), pygame.SRCALPHA)
+        dry = pygame.Surface((w, h), pygame.SRCALPHA)      # the land minus its shoreline
         for n in nodes:
             pygame.draw.circle(land, white, (sc(n.x), sc(n.y)), sc(84))
+            pygame.draw.circle(dry, white, (sc(n.x), sc(n.y)), sc(72))
         for e in links:
             if e.kind == 'road' and not e.bridge:
-                thick_line(land, white, (sc(nodes[e.a].x), sc(nodes[e.a].y)), (sc(nodes[e.b].x), sc(nodes[e.b].y)), sc(130))
+                a, b = (sc(nodes[e.a].x), sc(nodes[e.a].y)), (sc(nodes[e.b].x), sc(nodes[e.b].y))
+                thick_line(land, white, a, b, sc(130))
+                thick_line(dry, white, a, b, sc(110))
         world.blit(cut_out(tile('ground'), land), (0, 0))
+        wet.fill(white)
+        wet.blit(dry, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
         shore = pygame.Surface((w, h), pygame.SRCALPHA)
         for n in nodes:
             pygame.draw.circle(shore, C['shore'], (sc(n.x), sc(n.y)), sc(84), max(1, sc(10)))
@@ -80,6 +82,7 @@ def build_world(m, k):
         for x1, y1, x2, y2 in water:
             thick_line(world, THEMES[m.theme]['water_edge'], (sc(x1), sc(y1)), (sc(x2), sc(y2)), sc(64))
             thick_line(river, white, (sc(x1), sc(y1)), (sc(x2), sc(y2)), sc(48))
+            thick_line(wet, white, (sc(x1), sc(y1)), (sc(x2), sc(y2)), sc(64) + 6)
         world.blit(cut_out(tile('water'), river), (0, 0))
 
     # roads (the strip turned to follow each road), bridges, and dotted markers on river links
@@ -90,6 +93,7 @@ def build_world(m, k):
         angle = math.degrees(math.atan2(b.y - a.y, b.x - a.x))
         center = (sc((a.x + b.x) / 2), sc((a.y + b.y) / 2))
         if e.kind == 'road':
+            thick_line(roads, white, (sc(a.x), sc(a.y)), (sc(b.x), sc(b.y)), road.get_height() + 4)
             strip = tiled((math.ceil(length), road.get_height()), road)
             turned = pygame.transform.rotate(strip, -angle)
             world.blit(turned, turned.get_rect(center=center))
@@ -104,26 +108,35 @@ def build_world(m, k):
                 x, y = a.x + (b.x - a.x) * s / n, a.y + (b.y - a.y) * s / n
                 world.blit(marker, (sc(x - 5), sc(y - 5)))
 
-    # scenery, scattered where it won't cover outposts, roads or water (same spots every time for a map)
+    # scenery, scattered where it won't cover outposts or roads, standing on dry land (same spots every time for a
+    # map). The lower half of a tree or rock (its trunk or base) must be on land, though leaves may lean over a shore.
     rnd = random.Random(len(m.name) * 977 + len(nodes) * 31)
+    wet, roads = pygame.mask.from_surface(wet), pygame.mask.from_surface(roads)
+    taken = []
 
-    def free_spots(count, near_node, gap):
-        out = []
+    def free_spots(count, near_node, gap, img, foot):
+        out, shape = [], pygame.mask.from_surface(img)
+        half = img.get_height() // 2
+        base = pygame.mask.from_surface(img.subsurface((0, half, img.get_width(), img.get_height() - half)))
         for _ in range(count * 60):
             if len(out) >= count:
                 break
             x, y = 10 + rnd.random() * (m.w - 20), 10 + rnd.random() * (m.h - 20)
             if any(math.hypot(n.x - x, n.y - y) < near_node for n in nodes):
                 continue
-            if any(seg_dist(x, y, nodes[e.a].x, nodes[e.a].y, nodes[e.b].x, nodes[e.b].y) < 34 for e in links):
+            if any(math.hypot(p[0] - x, p[1] - y) < gap for p in out + taken):
                 continue
-            if any(seg_dist(x, y, *wl) < 40 for wl in water) or any(math.hypot(p[0] - x, p[1] - y) < gap for p in out):
+            at = (round(x * k - img.get_width() / 2), round((y + foot) * k - img.get_height()))
+            if roads.overlap(shape, at) or wet.overlap(base, (at[0], at[1] + half)):
                 continue
-            out.append((x, y))
+            out.append((x, y, at))
         return out
 
+    snug = 26 if m.theme == 'beach' else 0     # beach land is only a ring around each outpost: let scenery come closer
     for part, count, near, gap, foot in (('decor', m.w * m.h // 52000, 95, 70, 22), ('rock', m.w * m.h // 90000, 90, 60, 11)):
         img = tile(part)
-        for x, y in free_spots(count, near, gap):
-            world.blit(img, (round(x * k - img.get_width() / 2), round((y + foot) * k - img.get_height())))
+        spots = free_spots(count, near - snug, gap, img, foot)
+        taken.extend((x, y) for x, y, _ in spots)
+        for x, y, at in spots:
+            world.blit(img, at)
     return world

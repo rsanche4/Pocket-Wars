@@ -9,5 +9,5 @@
  "music": true,
  "music_volume": 5,
  "fullscreen": false,
- "map": "maps/palm-bay.json"
+ "map": "maps/01-boot-camp.json"
 }

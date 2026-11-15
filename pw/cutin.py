@@ -17,6 +17,7 @@ BEFORE, ATTACK, AFTER = BEATS['before'], BEATS['attack'], BEATS['after']
 LENGTH = BEFORE + ATTACK + AFTER          # seconds at full speed
 FIRE = BEFORE                             # when the shots leave
 HIT = FIRE + .3                           # when they land
+PORTRAIT, BAR = 56, 78                    # commander face size; HP bar width (kept clear of the seam in the middle)
 
 
 def ramp(t, start, length):
@@ -68,11 +69,11 @@ class CutIn:
         shake = lambda: round(math.sin(t * 90) * 2) if HIT <= t < HIT + .3 else 0
         self.draw_unit(surf, 0, x, ax + recoil + (shake() if f.fired_back else 0), x_dead, t, phase=0)
         self.draw_unit(surf, 1, y, ay + shake(), y_dead, t, phase=1.7)
-        for u, hp in ((x, hx), (y, hy)):
+        for u, hp in ((x, hx), (y, hy)):               # each commander's face sits right beside its unit's HP bar
             if u.side == 0:
-                self.draw_info(surf, u, hp, 10 + left, 'l')
+                self.draw_info(surf, u, hp, 6 + PORTRAIT + 6 + left, 'l')
             else:
-                self.draw_info(surf, u, hp, SW - 10 + right, 'r')
+                self.draw_info(surf, u, hp, SW - 6 - PORTRAIT - 6 + right, 'r')
         if t < min(.9, BEFORE):
             text(surf, 'VS', SW / 2, 100, C['white'], 2, 'c', C['ink'])
 
@@ -121,8 +122,13 @@ class CutIn:
             return 'sad' if mine_dead else 'happy' if theirs_dead else 'angry' if is_hq and took > 0 else 'hurt' if took > dealt else 'happy'
         faces = {x.side: mood(x_dead, y_dead and y.type != 'hq', False, f.taken, f.dealt),
                  y.side: mood(y_dead and y.type != 'hq', x_dead, y.type == 'hq', f.dealt, f.taken)}
-        portrait(surf, 0, faces[0], 6 + left, SH - 60)
-        portrait(surf, 1, faces[1], SW - 62 + right, SH - 60)
+        # the moment the faces change (as the HP drains), they hop and flash so the eye catches them
+        pop = math.sin(math.pi * ramp(t, HIT + .05, .3)) if reacted else 0
+        for side, px in ((0, 6 + left), (1, SW - 6 - PORTRAIT + right)):
+            py = 6 - round(4 * pop)
+            if 0 < pop:
+                rect(surf, px - 4, py - 4, PORTRAIT + 8, PORTRAIT + 8, C['white'])
+            portrait(surf, side, faces[side], px, py)
         text(surf, 'ENTER: SKIP', SW / 2, SH - 10, pygame.Color(255, 255, 255, 180), 1, 'c')
 
     def draw_half(self, surf, side, dx, is_left):
@@ -153,9 +159,9 @@ class CutIn:
         surf.blit(img, (round(cx - w / 2), round(170 - h + bob)))
 
     def draw_info(self, surf, u, hp, x, align):
-        s = SIDES[u.side]
-        text(surf, f"{s['name']} {UNITS[u.type]['name']}", x, 14, C['white'], 1, align, C['ink'])
-        bx = x if align == 'l' else x - 110
-        rect(surf, bx, 26, 110, 7, C['ink'])
-        hp_bar(surf, bx + 1, 27, 108, hp / UNITS[u.type]['hp'], 5)
+        """The unit's name, HP bar and HP, next to its commander's face (x = the edge nearest the face)."""
+        text(surf, UNITS[u.type]['name'], x, 12, C['white'], 1, align, C['ink'])
+        bx = x if align == 'l' else x - BAR
+        rect(surf, bx, 24, BAR, 9, C['ink'])
+        hp_bar(surf, bx + 1, 25, BAR - 2, hp / UNITS[u.type]['hp'], 7)
         text(surf, f"{hp}/{UNITS[u.type]['hp']} HP", x, 37, C['white'], 1, align, C['ink'])
