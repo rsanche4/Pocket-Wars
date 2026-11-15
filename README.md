@@ -66,6 +66,23 @@ A few extras are optional:
 - `assets/commanders/<folder>/title.png`: a strip of square frames that animates a commander on the title
   (speed: `title_anim_fps` in `data/style.json`); `blink.png` is their closed-eye face.
 
+The battle screen's turn feedback is in `assets/ui/` too (`py tools/make_ui.py` made the originals; running it
+again overwrites them, so pass names to remake only some, e.g. `py tools/make_ui.py arrow_head`):
+- `target.png`: the red target cursor while you choose what to attack, centred on the enemy outpost. A strip of
+  square frames it flips through to pulse (the original has 2). `target_off.png`: the same over something you
+  can't attack.
+- `parachute_green.png`, `parachute_tan.png`: the canopy and cords above a soldier dropping in (also the
+  see-through one showing where the next will land). The bottom middle is where the cords meet the soldier's head.
+- `dust.png`: the puff when a soldier lands, a strip of square frames played left to right (bottom row = ground).
+- `arrow_body.png`: the march arrow's body as a slice across it. Only its left column counts: top to bottom it's
+  outline, fill, outline (any stripes you like); the game sweeps it along the road and rounds it at the bends.
+  Its height is the arrow's thickness.
+- `arrow_head.png`: the arrowhead, pointing right with the tip on its right edge; the game turns it to face the
+  way. `arrow_start.png`: the dot where the arrow starts.
+
+The phase colours (rings, the top-bar tag and the big splash) are in `data/style.json`: `phase_gather` gold,
+`phase_march` blue, `phase_attack` orange (choosing where to attack from), `phase_target` red (choosing a target).
+
 ## Sound effects
 
 Every sound is a file in `assets/sfx/` (35 of them, e.g. `cursor.wav`, `shot_tank.wav`, `turn_green.wav`).
@@ -86,4 +103,5 @@ and on odd rows and columns `/` `\` `X` diagonal roads.
 
     py tools/sim.py --games 200 --level hard      # CPU vs CPU on every map, to check fairness
     py tools/make_sfx.py                          # remake the built-in sound effects
+    py tools/make_ui.py                           # remake the target, parachute, dust and march arrow pictures
     py tools/make_music.py                        # remake the placeholder music (needs numpy and ffmpeg)

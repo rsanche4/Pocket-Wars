@@ -7,7 +7,7 @@
   "highlight": "#ffe070", "red": "#e0482c", "white": "#ffffff", "grey": "#a8aa9c", "dim": "#4a4d44",
   "background": "#0a0c07", "neutral_pad": "#ece6d6", "neutral_pad_dark": "#b9b2a0", "river_marker": "#ffffffcc",
   "blackout": "#07090a", "blackout_dots": "#0d110a", "fog_cloud": "#e9ecef", "shore": "#f5e6b8b3",
-  "phase_gather": "#ffe070", "phase_march": "#5cc8ff", "phase_attack": "#ff4a30"
+  "phase_gather": "#ffe070", "phase_march": "#5cc8ff", "phase_attack": "#ff9a2e", "phase_target": "#ff4a30"
  },
  "sides": [
   {"name": "GREEN", "commander": "GREEN COMMANDER", "main": "#4a8a2c", "dark": "#1f3d1a", "light": "#9fd36a", "pad": "#4a8a2c",

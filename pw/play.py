@@ -105,14 +105,15 @@ class Play:
         self.banner = (title, color, sub, self.now)
 
     def phase_color(self):
-        """The colour of what you're doing right now: gold = gather/buy, blue = march, red = attack."""
+        """The colour of what you're doing right now: gold = gather/buy, blue = march, orange = attack (choosing
+        where to attack from), red = choosing the target."""
         mode, phase = self.mode, self.g.phase
         if mode == 'pick_buy':
             return C['phase_gather']
         if mode == 'pick_dest':
             return C['phase_march']
         if mode == 'pick_target':
-            return C['phase_attack']
+            return C['phase_target']
         return C.get('phase_' + phase, C['highlight'])
 
     def turn_banner(self):
@@ -199,7 +200,7 @@ class Play:
             if self.g.turn == 1:          # first turn is deploy only: nothing left to do, so the turn ends
                 self.end_turn()
             else:
-                self.say_banner('ATTACK!', C['phase_attack'], 'STEP 3 OF 3 · PICK WHO FIRES')
+                self.say_banner('ATTACK!', C['phase_attack'], 'STEP 3 OF 3 · PICK WHERE TO ATTACK FROM')
                 sound.play('attack_phase')
 
     def game_over(self):
@@ -731,7 +732,7 @@ class Play:
         if mine and self.mode == 'pick_dest':                  # the arrow from the marching group to the cursor
             dests = g.destinations(g.cur, self.src, self.group_from(self.src, self.counts))
             if self.cur in dests:
-                self.field.draw_route(surf, cam, dests[self.cur], C['phase_march'])
+                self.field.draw_route(surf, cam, dests[self.cur])
         if mine and self.mode == 'cursor' and not self.menu and g.phase == 'gather' and g.to_place > 0                 and g.can_place(g.cur, self.cur):                # the next reinforcement, waiting to drop here
             self.field.draw_ghost(surf, cam, self.cur, g.cur, now)
         self.draw_top(surf, now, vis)
@@ -787,7 +788,7 @@ class Play:
         text(surf, f'T{g.turn}', 56, 3, C['white'])
         phase = PHASE_NAMES[g.phase]                          # the phase as a tag in its colour
         x = 56 + text_width(f'T{g.turn}') + 5
-        col = C['grey'] if g.phase == 'over' else C['phase_' + g.phase]
+        col = C['grey'] if g.phase == 'over' else self.phase_color()     # turns red while choosing a target
         rect(surf, x - 2, 1, text_width(phase) + 4, TOP - 3, col)
         text(surf, phase, x, 3, C['ink'])
         if g.phase == 'gather' and g.to_place > 0:
