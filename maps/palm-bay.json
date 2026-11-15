@@ -1,0 +1,18 @@
+{
+ "name": "PALM BAY",
+ "theme": "beach",
+ "blurb": "Made by the map generator: 6 barracks, 4 bridges and 2 river crossings.",
+ "art": [
+  "o   o~G-o G",
+  "|   | | |/|",
+  "o-o=o=o o-G",
+  "| |  \\|   |",
+  "H-o   o-o-o",
+  "| |     | |",
+  "o-o-o   o-h",
+  "|   |\\  | |",
+  "G-o o=o=o-o",
+  "|/| | |   |",
+  "G o-G~o   o"
+ ]
+}

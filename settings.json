@@ -9,5 +9,5 @@
  "music": true,
  "music_volume": 5,
  "fullscreen": false,
- "map": "maps/06-big-battle.json"
+ "map": "maps/palm-bay.json"
 }
