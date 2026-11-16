@@ -43,6 +43,9 @@ class Pages:
 
 
 class Menu:
+    pauses = False       # True: the battle stops while it's open (see play.pausing)
+    on_back = None       # what ESC does instead of just closing it (e.g. OUTPOST CLEARED! hides to look around)
+
     def __init__(self, title, items, sub=None, wide=False, pair=None, win=None):
         self.title, self.items, self.sub, self.wide, self.pair, self.win = title, items, sub, wide, pair, win
         pickable = [i for i, it in enumerate(items) if not it.get('dis') and not it.get('info')]

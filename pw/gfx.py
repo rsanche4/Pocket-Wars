@@ -162,6 +162,7 @@ def box(surf, x, y, w, h, fill=None, edge=None, inner=None):
 
 
 def hp_bar(surf, x, y, w, frac, h=2):
+    frac = max(0, min(1, frac))                  # never wider than the bar, whatever the numbers say
     rect(surf, x, y, w, h, C['ink'])
     col = pygame.Color('#6fb04a') if frac > .6 else pygame.Color('#f8b030') if frac > .3 else pygame.Color('#e0482c')
     rect(surf, x, y, max(1, round(w * frac)), h, col)

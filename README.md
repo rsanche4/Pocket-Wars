@@ -84,6 +84,14 @@ again overwrites them, so pass names to remake only some, e.g. `py tools/make_ui
   its bottom-right corner; the game flips it for the other three diagonal directions.
 - `arrow_start.png`: the dot where the arrow starts.
 
+The battle scenes happen outdoors:
+- `assets/ui/sky.png` (320x186): the sky above the ground. Any size works (it's stretched to fit). For a sky that only
+  one map theme uses, put a `sky.png` in that theme's folder, e.g. `assets/terrain/snow/sky.png`.
+- `assets/ui/cloud1.png`, `cloud2.png`, `cloud3.png`: clouds that drift slowly across the sky, one picture each.
+  Every `cloud*.png` in `assets/ui/` is used, so add `cloud4.png` for another, or delete them all for a clear sky.
+- The ground is the map theme's own `ground.png`, with its `road.png` under the units when a road joins the two
+  outposts, or its `water.png` (and `bridge.png`) between them when they fight across a river. Nothing extra to draw.
+
 The phase colours (rings, the top-bar tag and the big splash) are in `data/style.json`: `phase_gather` gold,
 `phase_march` blue, `phase_attack` orange (choosing where to attack from), `phase_target` red (choosing a target).
 
@@ -107,5 +115,5 @@ and on odd rows and columns `/` `\` `X` diagonal roads.
 
     py tools/sim.py --games 200 --level hard      # CPU vs CPU on every map, to check fairness
     py tools/make_sfx.py                          # remake the built-in sound effects
-    py tools/make_ui.py                           # remake the target, parachute, dust and march arrow pictures
+    py tools/make_ui.py                           # remake the target, parachute, dust, march arrow, sky and cloud pictures
     py tools/make_music.py                        # remake the placeholder music (needs numpy and ffmpeg)

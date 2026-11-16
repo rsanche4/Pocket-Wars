@@ -16,6 +16,10 @@ py tools/make_ui.py target arrow_head)
   arrow_head_diagonal.png  the arrowhead on a diagonal road, pointing DOWN-RIGHT along it; its bottom-right corner is
                         the tip. The game flips it for the other three diagonal directions.
   arrow_start.png       the dot where the arrow starts (centred on the outpost the group leaves).
+  sky.png               the sky behind the battle scenes, 320x186: everything above the ground. Any size works (it is
+                        stretched to fit). A map theme can have its own: assets/terrain/<theme>/sky.png.
+  cloud1.png ...        clouds drifting slowly across the battle sky, one picture each. Every cloud*.png in assets/ui
+                        is used (add cloud4.png and it shows up too; delete them all for a clear sky).
 """
 import math
 import os
@@ -134,9 +138,47 @@ def arrow_start():
     return s
 
 
+def sky():
+    """A sunny sky: deep blue at the top fading to pale near the horizon, in pixel-art bands (with a dithered row
+    between them)."""
+    w, h = 320, 186
+    top, bottom = pygame.Color('#3a7fd6'), pygame.Color('#cdeeff')
+    s = surface(w, h)
+    bands = 9
+    for y in range(h):
+        k = y / (h - 1)
+        b = min(bands - 1, int(k * bands))
+        col = top.lerp(bottom, b / (bands - 1))
+        nxt = top.lerp(bottom, min(bands - 1, b + 1) / (bands - 1))
+        edge = int((y + 1) / (h - 1) * bands) != b and b < bands - 1      # last row of a band: checkerboard into the next
+        for x in range(w):
+            s.set_at((x, y), nxt if edge and (x + y) % 2 else col)
+    return s
+
+
+def cloud(puffs, w, h):
+    """A puffy white cloud from a few circles (x, y, r), shaded light blue underneath with a soft outline."""
+    s = surface(w, h)
+    for x, y, r in puffs:
+        pygame.draw.circle(s, C['white'], (x, y), r)
+    pygame.draw.rect(s, C['white'], (puffs[0][0], h - 6, puffs[-1][0] - puffs[0][0], 5))
+    shade, line = pygame.Color('#d4e9fb'), pygame.Color('#9cc4e8')
+    m = pygame.mask.from_surface(s)
+    for y in range(h):
+        for x in range(w):
+            if m.get_at((x, y)) and y >= h * .62:
+                s.set_at((x, y), shade)
+    for p in m.outline():
+        s.set_at(p, line)
+    return s
+
+
 RECIPES = {'target': target, 'target_off': target_off, 'dust': dust,
            'arrow_body': arrow_body, 'arrow_head': arrow_head, 'arrow_head_diagonal': arrow_head_diagonal,
-           'arrow_start': arrow_start}
+           'arrow_start': arrow_start, 'sky': sky,
+           'cloud1': lambda: cloud([(10, 14, 7), (20, 9, 9), (31, 11, 8), (40, 15, 6)], 48, 22),
+           'cloud2': lambda: cloud([(8, 10, 6), (17, 7, 7), (27, 10, 6)], 35, 17),
+           'cloud3': lambda: cloud([(10, 17, 8), (22, 11, 10), (35, 9, 9), (47, 13, 8), (56, 18, 6)], 64, 25)}
 for _side in range(2):
     RECIPES['parachute_' + SIDE_FILE[_side]] = lambda side=_side: parachute(side)
 

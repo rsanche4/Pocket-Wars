@@ -28,6 +28,7 @@ def avg(t):
     return sum(UNITS[t]['damage']) / 2
 
 
+SPEEDS = {'full': 1, 'fast': .5, 'off': 0}      # battle scene setting -> how fast animations play
 PHASE_NAMES = {'gather': 'GATHER', 'march': 'MARCH', 'attack': 'ATTACK', 'over': 'GAME OVER'}
 BANNER_SECONDS = 1.4
 
@@ -54,7 +55,7 @@ class Play:
         mode = settings['mode']
         self.bots = [mode == 'watch', mode in ('cpu', 'watch')]
         self.levels = [settings['cpu'], settings['cpu']]
-        self.speed = {'full': 1, 'fast': .5, 'off': 0}[settings['anim']]
+        self.speed = SPEEDS[settings['anim']]
         self.now = 0
         self.g = Game(m, settings['fog'])
         self.k = max(.36, min(.44, min((SW - 8) / m.w, (VIEW_H - 6) / m.h)))
@@ -65,6 +66,7 @@ class Play:
         self.banner = self.cutin = None
         self.pass_screen = False
         self.camera = None
+        self.peek = None                    # (a, b, counts) while you look around before choosing to move in
         self.moods = [None, None]
         self.time_left = 0
         self.ended = False
@@ -259,7 +261,7 @@ class Play:
         return (self.paused_at if self.paused_at is not None else now) - self.paused_total
 
     def update(self, now, dt):
-        if self.menu is not None and getattr(self.menu, 'pauses', False):
+        if self.menu is not None and self.menu.pauses:
             if self.paused_at is None:
                 self.paused_at = now
             return                                # nothing moves: CPU, marches, battle scenes, the turn timer
@@ -375,7 +377,10 @@ class Play:
         f = g.fight(a, b, x, y)
         self.fight_moods(f)
         if see and self.speed:
-            self.cutin = CutIn(f, self.now, .25 if self.speed < 1 else 1)     # Fast: about a quarter of the full length
+            e = next((e for e in g.map.links if {e.a, e.b} == {a, b}), None)   # what lies between them: road, river...
+            link = None if e is None else 'bridge' if e.bridge else e.kind
+            self.cutin = CutIn(f, self.now, .25 if self.speed < 1 else 1,      # Fast: about a quarter of the full length
+                               theme=g.map.theme, link=link)
             yield self.cutin
             self.cutin = None
         elif see:
@@ -462,11 +467,11 @@ class Play:
             return {'l': label, 'val': lambda: f"◀ {S[key] if S[on] else 'OFF'} ▶", 'adj': adj}
 
         def scenes(d):
-            options = ['full', 'fast', 'off']
-            S['anim'] = options[(options.index(S['anim']) + d) % 3]
+            options = list(SPEEDS)
+            S['anim'] = options[(options.index(S['anim']) + d) % len(options)]
             save()
             self.settings['anim'] = S['anim']
-            self.speed = {'full': 1, 'fast': .5, 'off': 0}[S['anim']]
+            self.speed = SPEEDS[S['anim']]
         return [volume('MUSIC VOLUME', 'music_volume', 'music'), volume('EFFECTS VOLUME', 'sfx_volume', 'sound'),
                 {'l': 'BATTLE SCENES', 'val': lambda: f"◀ {S['anim'].upper()} ▶", 'adj': scenes}]
 
@@ -629,7 +634,7 @@ class Play:
                 sound.play('adjust')
             elif k == 'b' and g.phase != 'over':
                 sound.play('back')
-                if getattr(m, 'on_back', None):
+                if m.on_back:
                     self.menu = None
                     m.on_back()
                 elif m.pair and self.mode == 'pick_target':
@@ -776,7 +781,7 @@ class Play:
 
     def cam(self):
         """Follows the cursor. With an attack or move-in pop-up open it looks at the two outposts instead and keeps
-        them in the top part of the view, so the pop-up can sit below them (menu_align)."""
+        them in the top part of the view, so the pop-up can sit below them (menu_spot)."""
         nodes = self.g.map.nodes
         x, y, frac = nodes[self.cur].x, nodes[self.cur].y, .5
         if self.menu and self.menu.pair:
@@ -803,14 +808,12 @@ class Play:
             n = self.g.map.nodes[i]
             x, y = n.x * self.k - self.cam_goal[0], n.y * self.k - self.cam_goal[1] + VIEW_Y   # once the camera arrives
             boxes.append(pygame.Rect(round(x - 24), round(y - 26), 48, 44))
-        best = None
-        for k, (mx, my) in enumerate((mx, my) for my in (VIEW_Y + VIEW_H - h - 3, VIEW_Y + 3)
-                                     for mx in ((SW - w) // 2, SW - w - 3, 3)):
-            r = pygame.Rect(mx, my, w, h)
-            cover = sum(r.clip(bx).width * r.clip(bx).height for bx in boxes)
-            if best is None or cover < best[0]:
-                best = (cover, (mx, my))
-        return best[1]
+        spots = [(mx, my) for my in (VIEW_Y + VIEW_H - h - 3, VIEW_Y + 3) for mx in ((SW - w) // 2, SW - w - 3, 3)]
+
+        def cover(spot):                                     # how much of the outposts a pop-up there would hide
+            r = pygame.Rect(spot, (w, h))
+            return sum(c.width * c.height for c in (r.clip(bx) for bx in boxes))
+        return min(spots, key=cover)                         # ties go to the first: bottom middle
 
     def draw(self, surf, now):
         now = self.battle_time(now)                  # animations freeze while paused
@@ -829,7 +832,8 @@ class Play:
             dests = g.destinations(g.cur, self.src, self.group_from(self.src, self.counts))
             if self.cur in dests:
                 self.field.draw_route(surf, cam, dests[self.cur])
-        if mine and self.mode == 'cursor' and not self.menu and g.phase == 'gather' and g.to_place > 0                 and g.can_place(g.cur, self.cur):                # the next reinforcement, waiting to drop here
+        if mine and self.mode == 'cursor' and not self.menu and g.phase == 'gather' and g.to_place > 0 \
+                and g.can_place(g.cur, self.cur):                 # the next reinforcement, waiting to drop here
             self.field.draw_ghost(surf, cam, self.cur, g.cur, now)
         if self.bot() and not all(self.bots) and g.phase != 'over':
             self.draw_cpu_playing(surf, now)

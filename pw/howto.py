@@ -109,7 +109,7 @@ class HowTo(Pages):
             self.battle = CutIn(Fight(x, y, dealt, taken, taken > 0, x.hp, y.hp, 'ok'), now + .3, silent=True)
         self.screen320.fill(C['background'])
         self.battle.draw(self.screen320, now)
-        p.blit(self.screen320, (0, 0), (14, 72, PW, PH))
+        p.blit(self.screen320, (0, 0), (14, 100, PW, PH))
 
     def pic_buy(self, p, now):
         p.fill(C['olive_dark'])
