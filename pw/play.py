@@ -64,6 +64,7 @@ class Play:
         self.viewer = 0                     # whose eyes the screen shows in two-player fog
         self.script, self.wait = None, None
         self.banner = self.cutin = None
+        self.before = None                  # the screen just before a battle scene (see fight)
         self.pass_screen = False
         self.camera = None
         self.peek = None                    # (a, b, counts) while you look around before choosing to move in
@@ -245,7 +246,7 @@ class Play:
         self.app.scene = Stats(self.app, self.g, back)
 
     def resign(self, p):
-        self.script = self.wait = self.cutin = None
+        self.script = self.wait = self.cutin = self.before = None
         self.field.march = None
         self.g.end_game(1 - p, resigned=True)
         self.game_over()
@@ -372,15 +373,19 @@ class Play:
     def fight(self, a, b, x, y):
         g = self.g
         see = self.seen_by(a) or self.seen_by(b)
+        scene = see and self.speed
+        if scene:                  # the screen as it is before the shots: shown behind the battle scene as it slides in,
+            self.before = pygame.Surface((SW, SH))     # so the map can't give the result away (an outpost going grey)
+            self.draw(self.before, self.now + self.paused_total)
         f = g.fight(a, b, x, y)
         self.fight_moods(f)
-        if see and self.speed:
+        if scene:
             e = next((e for e in g.map.links if {e.a, e.b} == {a, b}), None)   # what lies between them: road, river...
             link = None if e is None else 'bridge' if e.bridge else e.kind
             self.cutin = CutIn(f, self.now, .25 if self.speed < 1 else 1,      # Fast: about a quarter of the full length
                                theme=g.map.theme, link=link)
             yield self.cutin
-            self.cutin = None
+            self.cutin = self.before = None
         elif see:
             sound.play('shot_' + x.type)
             yield .25
@@ -815,6 +820,10 @@ class Play:
 
     def draw(self, surf, now):
         now = self.battle_time(now)                  # animations freeze while paused
+        if self.cutin and self.before:               # a battle scene over the screen as it was before the shots
+            surf.blit(self.before, (0, 0))
+            self.cutin.draw(surf, now)
+            return
         g = self.g
         surf.fill(C['background'])
         v = self.viewer_side()

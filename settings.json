@@ -1,13 +1,13 @@
 {
  "mode": "cpu",
  "cpu": "hard",
- "fog": "fog",
+ "fog": "off",
  "timer": 0,
  "anim": "full",
  "sound": true,
  "sfx_volume": 10,
  "music": true,
  "music_volume": 5,
- "fullscreen": true,
- "map": "maps/01-boot-camp.json"
+ "fullscreen": false,
+ "map": "maps/08-blitz.json"
 }

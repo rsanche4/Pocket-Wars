@@ -1,6 +1,6 @@
 {
- "games": 7,
- "you_won": 1,
+ "games": 9,
+ "you_won": 2,
  "styles": {
   "balanced": {
    "won": 0,
@@ -15,8 +15,8 @@
    "lost": 0
   },
   "air power": {
-   "won": 4,
-   "lost": 0
+   "won": 5,
+   "lost": 1
   },
   "armor": {
    "won": 0,
@@ -28,11 +28,11 @@
   }
  },
  "you": {
-  "turns": 60,
+  "turns": 98,
   "built": {
-   "halftrack": 15,
-   "tank": 5,
-   "helicopter": 12
+   "halftrack": 20,
+   "tank": 8,
+   "helicopter": 34
   }
  }
 }
