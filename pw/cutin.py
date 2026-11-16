@@ -101,10 +101,9 @@ class CutIn:
 
     @staticmethod
     def art(u):
-        """Drawn as it is in the folder (not mirrored): tan pictures should already face left."""
-        if u.type == 'hq':
-            return image(f'buildings/hq_big_{SIDE_FILE[u.side]}.png')
-        img = unit_image('battle', u.type, u.side)
+        """Drawn at double size (pixels stay crisp), and as it is in the folder (not mirrored): tan pictures should
+        already face left. An HQ uses its castle picture."""
+        img = image(f'buildings/hq_big_{SIDE_FILE[u.side]}.png') if u.type == 'hq' else unit_image('battle', u.type, u.side)
         return pygame.transform.scale(img, (img.get_width() * 2, img.get_height() * 2))
 
     def backdrop(self):
@@ -258,8 +257,10 @@ class CutIn:
         return FEET - 40
 
     def number_y(self, which):
-        """Where a unit's damage number pops up: at the usual height, or just above a helicopter flying high."""
-        return min(FEET - 94, self.bottom_y(which) - self.images[which].get_height() - 16)
+        """Where a unit's damage number pops up: at the usual height, or higher over something tall (a helicopter
+        flying high, a castle), but never up among the faces and HP bars."""
+        above = self.bottom_y(which) - self.images[which].get_height() - 16
+        return max(HUD_Y + PORTRAIT + 22, min(FEET - 94, above))
 
     def draw_unit(self, surf, which, u, cx, dies, t, phase):
         """A unit standing on the ground with its shadow (helicopters hover above theirs). Alive: it bobs gently in
