@@ -1,4 +1,4 @@
-"""The map generator: makes a ready-to-play map from a few settings (MAP EDITOR > + RANDOM MAP).
+"""The map generator: makes a ready-to-play map from a few settings (MAP EDITOR > + GENERATE MAP).
 
 Maps are built the way the editor's MIRROR makes them: every change is copied to the opposite spot, turned around,
 so both armies always get the same map. Step by step, on a full grid of roads:

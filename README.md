@@ -44,7 +44,7 @@ What the Hard CPU has learned about you is kept in `learned.json` (Options → H
 | `title.py` | the title screen, its intro, the live battle behind it and the commanders |
 | `menus.py` | choose a battlefield, battle setup, options |
 | `howto.py` | How to Play (and the editor's guide), with their pictures |
-| `editor.py` | the map editor, the list of maps, and the RANDOM MAP screen |
+| `editor.py` | the map editor, the list of maps, and the GENERATE MAP screen |
 | `mapgen.py` | the map generator: builds a fair, mirrored map from a few settings |
 | `demo.py` | make-believe battles for the title and How to Play |
 | `settings.py` | loads and saves `settings.json` |

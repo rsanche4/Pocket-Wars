@@ -460,8 +460,8 @@ class MapList:
         sound.music('title')
 
     def rows(self):
-        """What the list shows: (label, kind, map). Kinds: new, random, map, restore, back."""
-        rows = [('+ NEW MAP', 'new', None), ('+ RANDOM MAP', 'random', None)]
+        """What the list shows: (label, kind, map). Kinds: new, generate, map, restore, back."""
+        rows = [('+ NEW MAP', 'new', None), ('+ GENERATE MAP', 'generate', None)]
         rows += [(m.name, 'map', m) for m in self.app.maps]               # every map can be opened and edited
         if missing_defaults():
             rows.append(('RESTORE DELETED', 'restore', None))
@@ -482,7 +482,7 @@ class MapList:
             _, kind, m = rows[self.sel]
             if kind == 'new':
                 self.app.edit_map(None)
-            elif kind == 'random':
+            elif kind == 'generate':
                 self.app.scene = Generator(self.app)
             elif kind == 'map':
                 self.app.edit_map(m)
@@ -526,7 +526,7 @@ class MapList:
                      'AND PICK HOW IT WORKS.', '', 'MAPS ARE SAVED IN MAPS.']
             for k, line in enumerate(lines):
                 text(surf, line, 224, 30 + k * 12, C['ink'] if k < 2 else C['olive'] if 9 < k < 13 else C['dim'], 1, 'c')
-        elif kind == 'random':
+        elif kind == 'generate':
             lines = ['LET THE GAME MAKE ONE.', '', 'PICK THE SIZE, THEME,', 'RIVERS, ROADS AND', 'BARRACKS, AND IT BUILDS',
                      'A FAIR, READY TO PLAY', 'MAP. REROLL UNTIL YOU', 'LIKE IT, THEN SAVE IT', 'OR TWEAK IT IN THE EDITOR.']
             for k, line in enumerate(lines):
@@ -615,7 +615,7 @@ class Generator:
     def draw(self, surf, now):
         surf.fill(C['olive_dark'])
         rect(surf, 0, 0, SW, 16, C['olive'])
-        text(surf, 'RANDOM MAP', SW / 2, 5, C['highlight'], 1, 'c', C['ink'])
+        text(surf, 'GENERATE MAP', SW / 2, 5, C['highlight'], 1, 'c', C['ink'])
         items = self.items()
         box(surf, 4, 20, 146, len(items) * 13 + 14)
         y = 24

@@ -52,10 +52,10 @@
    ]
   },
   {
-   "title": "RANDOM MAPS AND RESETS",
+   "title": "GENERATED MAPS AND RESETS",
    "picture": "ed_mirror",
    "text": [
-    "+ RANDOM MAP in the map list builds a fair, mirrored map from a few settings. REROLL until you like it, then SAVE IT, or EDIT IT first.",
+    "+ GENERATE MAP in the map list builds a fair, mirrored map from a few settings. REROLL until you like it, then SAVE IT, or EDIT IT first.",
     "Messed up a map that came with the game? RESET TO DEFAULT in the editor menu puts the original back."
    ]
   }
