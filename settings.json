@@ -1,7 +1,7 @@
 {
  "mode": "cpu",
  "cpu": "hard",
- "fog": "blackout",
+ "fog": "off",
  "timer": 0,
  "anim": "full",
  "sound": true,

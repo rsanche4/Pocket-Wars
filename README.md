@@ -95,7 +95,14 @@ The battle scenes happen outdoors:
 Between two neighbouring outposts with no road or river at all, the battlefield shows the theme's `blocked.png`
 (`assets/terrain/<theme>/blocked.png`, about 34x30): a forest on grass, mountains on desert and snow, boulders on the
 beach, so it's clear nobody can get through, not even a helicopter. Its bottom middle sits just below the middle of
-the gap. `py tools/make_ui.py blocked_grass` (or `_desert`, `_beach`, `_snow`) remakes one.
+the gap, and it's drawn over the outposts' pads but under their buildings and units, so treetops can overlap the
+outpost above. `py tools/make_ui.py blocked_grass` (or `_desert`, `_beach`, `_snow`) remakes one.
+
+Diagonal roads use the theme's `road_diagonal.png` (`assets/terrain/<theme>/road_diagonal.png`, 88x80): one diagonal
+road going down-right from one outpost to the next, starting 10 pixels in from the top-left corner and ending 10 pixels
+in from the bottom-right corner (its ends hide under the outposts). The game mirrors it for roads going down-left and
+stretches it a little on maps drawn bigger or smaller. The originals are just `road.png` turned at the angle; paint over
+them for a cleaner diagonal (`py tools/make_ui.py road_diagonal_grass` remakes one from the current `road.png`).
 
 The phase colours (rings, the top-bar tag and the big splash) are in `data/style.json`: `phase_gather` gold,
 `phase_march` blue, `phase_attack` orange (choosing where to attack from), `phase_target` red (choosing a target).

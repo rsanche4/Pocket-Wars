@@ -1,7 +1,9 @@
 """The ground under a battle, built once per map from the tiles in assets/terrain/<theme>/:
-ground.png and water.png repeat like wallpaper, road.png is a strip repeated along each road, bridge.png sits on each
-bridge, blocked.png (a forest, mountains...) fills the gap between neighbouring outposts that aren't linked, and
-decor.png (trees etc.) and rock.png are scattered where nothing else is."""
+ground.png and water.png repeat like wallpaper, road.png is a strip repeated along each straight road, road_diagonal.png
+is one diagonal road (mirrored for the other direction), bridge.png sits on each bridge, and decor.png (trees etc.) and
+rock.png are scattered where nothing else is. blocked.png (a forest, mountains...) fills the gap between neighbouring
+outposts that aren't linked: it isn't part of the ground picture, the battlefield draws it over the outposts' pads
+(see obstacles)."""
 import math
 import random
 import pygame
@@ -10,6 +12,10 @@ from .data import STEP_X, STEP_Y
 from .gfx import image, has_image, THEMES, C
 
 KINDS = ['bunker', 'town', 'watchtower', 'town', 'bunker', 'watchtower', 'town']
+# road_diagonal.png is drawn for this zoom (k = .4): one diagonal step between outposts is DIAGONAL_STEP pixels, and the
+# picture leaves DIAGONAL_MARGIN pixels around it (the road starts and ends under the outposts' pads). Other zooms stretch it.
+DIAGONAL_STEP = (round(STEP_X * .4), round(STEP_Y * .4))
+DIAGONAL_MARGIN = 10
 
 
 def outpost_kinds(m):
@@ -37,6 +43,38 @@ def thick_line(s, color, a, b, width):
     pygame.draw.line(s, color, a, b, width)
     for p in (a, b):
         pygame.draw.circle(s, color, p, width // 2)
+
+
+def obstacles(m, k):
+    """What blocks the way between two neighbouring outposts with no road or river between them (a forest,
+    mountains...), so it's clear why nobody, not even a helicopter, can get from one to the other.
+    A list of (picture, where in the world picture)."""
+    if not has_image(f'terrain/{m.theme}/blocked.png'):
+        return []
+    wall = image(f'terrain/{m.theme}/blocked.png')
+    at = {(n.col, n.row): i for i, n in enumerate(m.nodes)}
+    linked = {frozenset((e.a, e.b)) for e in m.links}
+    out = []
+    for (c, r), i in at.items():
+        for j in (at.get((c + 1, r)), at.get((c, r + 1))):              # the outpost to the right, and the one below
+            if j is not None and frozenset((i, j)) not in linked:
+                a, b = m.nodes[i], m.nodes[j]
+                out.append((wall, wall.get_rect(midbottom=(round((a.x + b.x) / 2 * k), round((a.y + b.y) / 2 * k) + 6))))
+    return out
+
+
+def diagonal_road(m, k, a, b):
+    """The theme's road_diagonal.png for the diagonal road from outpost a to b (mirrored if it goes down-left, stretched
+    to this zoom), and where it goes. None if the theme has no such picture."""
+    if not has_image(f'terrain/{m.theme}/road_diagonal.png'):
+        return None
+    img = image(f'terrain/{m.theme}/road_diagonal.png')
+    if (b.x - a.x) * (b.y - a.y) < 0:
+        img = pygame.transform.flip(img, True, False)
+    sx = abs(b.x - a.x) * k / DIAGONAL_STEP[0]
+    sy = abs(b.y - a.y) * k / DIAGONAL_STEP[1]
+    img = pygame.transform.scale(img, (round(img.get_width() * sx), round(img.get_height() * sy)))
+    return img, img.get_rect(center=(round((a.x + b.x) / 2 * k), round((a.y + b.y) / 2 * k)))
 
 
 def build_world(m, k):
@@ -95,9 +133,13 @@ def build_world(m, k):
         center = (sc((a.x + b.x) / 2), sc((a.y + b.y) / 2))
         if e.kind == 'road':
             thick_line(roads, white, (sc(a.x), sc(a.y)), (sc(b.x), sc(b.y)), road.get_height() + 4)
-            strip = tiled((math.ceil(length), road.get_height()), road)
-            turned = pygame.transform.rotate(strip, -angle)
-            world.blit(turned, turned.get_rect(center=center))
+            drawn = diagonal_road(m, k, a, b) if a.x != b.x and a.y != b.y else None
+            if drawn:                                   # a diagonal road: the theme's own picture of one
+                world.blit(*drawn)
+            else:
+                strip = tiled((math.ceil(length), road.get_height()), road)
+                turned = pygame.transform.rotate(strip, -angle)
+                world.blit(turned, turned.get_rect(center=center))
             if e.bridge:
                 br = pygame.transform.rotate(tile('bridge'), -round(angle / 90) * 90)
                 world.blit(br, br.get_rect(center=center))
@@ -109,20 +151,10 @@ def build_world(m, k):
                 x, y = a.x + (b.x - a.x) * s / n, a.y + (b.y - a.y) * s / n
                 world.blit(marker, (sc(x - 5), sc(y - 5)))
 
-    # what blocks the way between two neighbouring outposts that have no road or river between them (a forest,
-    # mountains...): so it's clear why nobody, not even a helicopter, can get from one to the other
-    if has_image(f'terrain/{m.theme}/blocked.png'):
-        wall = tile('blocked')
-        shape = pygame.mask.from_surface(wall).to_surface(setcolor=white, unsetcolor=(0, 0, 0, 0))
-        at = {(n.col, n.row): i for i, n in enumerate(nodes)}
-        linked = {frozenset((e.a, e.b)) for e in links}
-        for (c, r), i in at.items():
-            for j in (at.get((c + 1, r)), at.get((c, r + 1))):         # the outpost to the right, and the one below
-                if j is not None and frozenset((i, j)) not in linked:
-                    a, b = nodes[i], nodes[j]
-                    spot = wall.get_rect(midbottom=(sc((a.x + b.x) / 2), sc((a.y + b.y) / 2) + 6))
-                    world.blit(wall, spot)
-                    roads.blit(shape, spot)                              # (keeps the scenery below off it)
+    # the forests / mountains between unlinked outposts are drawn by the battlefield, over the pads; just keep the
+    # scenery below off them
+    for wall, spot in obstacles(m, k):
+        roads.blit(pygame.mask.from_surface(wall).to_surface(setcolor=white, unsetcolor=(0, 0, 0, 0)), spot)
 
     # scenery, scattered where it won't cover outposts or roads, standing on dry land (same spots every time for a
     # map). The lower half of a tree or rock (its trunk or base) must be on land, though leaves may lean over a shore.

@@ -25,6 +25,12 @@ And in each map theme's folder, assets/terrain/<theme>/:
   blocked.png           what stands between two neighbouring outposts that have no road or river between them (nobody
                         can cross, not even helicopters): a forest on grass, mountains on desert and snow, boulders on
                         the beach. Its bottom middle sits just below the middle of the gap; about 34x30 fits the gap.
+  road_diagonal.png     one diagonal road, going DOWN-RIGHT from one outpost to the next (the game mirrors it for
+                        roads going down-left). 88x80: the road starts 10 pixels in from the top-left corner (the
+                        centre of the upper outpost) and ends 10 pixels in from the bottom-right corner (the centre of
+                        the lower one); its ends are hidden under the outposts. Maps drawn a little bigger or smaller
+                        stretch it to fit. This recipe draws the theme's road.png turned at the angle, as the game used
+                        to; paint over it for a cleaner diagonal.
 """
 import math
 import os
@@ -36,6 +42,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 from pw.gfx import C, SIDES, SIDE_FILE        # noqa: E402  (colours from data/style.json)
 from pw.data import STEP_X, STEP_Y            # noqa: E402  (spacing of outposts: the angle of diagonal roads)
+from pw.world import DIAGONAL_STEP, DIAGONAL_MARGIN, tiled     # noqa: E402  (the size of road_diagonal.png)
 
 OUT = os.path.join(ROOT, 'assets', 'ui')
 INK, CLEAR = C['ink'], (0, 0, 0, 0)
@@ -237,15 +244,30 @@ def blocked(theme):
     return s
 
 
+def road_diagonal(theme):
+    """The theme's road.png turned to run corner to corner (as straight-road strips used to be drawn on diagonals)."""
+    road = pygame.image.load(os.path.join(ROOT, 'assets', 'terrain', theme, 'road.png'))
+    (w, h), m = DIAGONAL_STEP, DIAGONAL_MARGIN
+    s = surface(w + 2 * m, h + 2 * m)
+    strip = tiled((math.ceil(math.hypot(w, h)), road.get_height()), road)
+    turned = pygame.transform.rotate(strip, -math.degrees(math.atan2(h, w)))
+    s.blit(turned, turned.get_rect(center=(m + w / 2, m + h / 2)))
+    return s
+
+
 RECIPES = {'target': target, 'target_off': target_off, 'dust': dust,
            'arrow_body': arrow_body, 'arrow_head': arrow_head, 'arrow_head_diagonal': arrow_head_diagonal,
            'arrow_start': arrow_start, 'sky': sky,
            'cloud1': lambda: cloud([(10, 14, 7), (20, 9, 9), (31, 11, 8), (40, 15, 6)], 48, 22),
            'cloud2': lambda: cloud([(8, 10, 6), (17, 7, 7), (27, 10, 6)], 35, 17),
            'cloud3': lambda: cloud([(10, 17, 8), (22, 11, 10), (35, 9, 9), (47, 13, 8), (56, 18, 6)], 64, 25)}
-for _theme in ('grass', 'desert', 'beach', 'snow'):
+THEMES = ('grass', 'desert', 'beach', 'snow')
+WHERE = {}                                     # recipes saved in a theme's folder instead of assets/ui
+for _theme in THEMES:
     RECIPES['blocked_' + _theme] = lambda theme=_theme: blocked(theme)
-WHERE = {'blocked_' + t: os.path.join(ROOT, 'assets', 'terrain', t, 'blocked.png') for t in ('grass', 'desert', 'beach', 'snow')}
+    RECIPES['road_diagonal_' + _theme] = lambda theme=_theme: road_diagonal(theme)
+    for _part in ('blocked', 'road_diagonal'):
+        WHERE[f'{_part}_{_theme}'] = os.path.join(ROOT, 'assets', 'terrain', _theme, _part + '.png')
 for _side in range(2):
     RECIPES['parachute_' + SIDE_FILE[_side]] = lambda side=_side: parachute(side)
 

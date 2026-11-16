@@ -5,7 +5,7 @@ import pygame
 
 from .data import ORDER, UNITS
 from .gfx import C, SIDES, SW, SH, rect, ellipse, ellipse_ring, blit, digits, hp_bar, text, unit_image, building_image, image, SIDE_FILE
-from .world import build_world, outpost_kinds
+from .world import build_world, obstacles, outpost_kinds
 
 
 _blackout = []
@@ -59,6 +59,7 @@ class Field:
     def __init__(self, game, k):
         self.g, self.k = game, k
         self.world = build_world(game.map, k)
+        self.walls = obstacles(game.map, k)       # forests / mountains between unlinked outposts
         self.kinds = outpost_kinds(game.map)
         self.march = None              # a March being shown (its units are hidden from their outpost meanwhile)
         self.drops = []                # Drops (soldiers parachuting in) being shown
@@ -74,8 +75,9 @@ class Field:
         g, nodes = self.g, self.g.map.nodes
         blink = int(now / .26) % 2
         surf.blit(self.world, (-cam[0], -cam[1]))
-        if blackout and vis is not None:
-            self.draw_blackout(surf, cam, vis)
+        # in layers: the outposts' pads, then the forests / mountains between unlinked outposts (their tops may
+        # overlap a pad), then the dark of blackout, then each outpost's ring, building, flag and units on top
+        shown = []
         for i, n in enumerate(nodes):
             seen = vis is None or i in vis
             if blackout and not seen:
@@ -84,10 +86,16 @@ class Field:
             if not (-30 <= x <= SW + 30 and -30 <= y <= SH + 30):
                 continue
             side = g.owner(i) if seen else (n.hq if n.hq >= 0 else None)
-            kind = self.kinds[i]
+            shown.append((i, n, seen, x, y, side))
             ellipse(surf, x, y + 3, 15, 5, pygame.Color(0, 0, 0, 90))
             ellipse(surf, x, y + 1, 14, 5, C['neutral_pad_dark'] if side is None else SIDES[side]['pad'])
             ellipse(surf, x, y, 14, 5, C['neutral_pad'] if side is None else SIDES[side]['light'])
+        for wall, spot in self.walls:
+            surf.blit(wall, (spot.x - cam[0], spot.y - cam[1]))
+        if blackout and vis is not None:
+            self.draw_blackout(surf, cam, vis)
+        for i, n, seen, x, y, side in shown:
+            kind = self.kinds[i]
             if i in highlight:
                 ellipse_ring(surf, x, y, 17, 7, ring or C['highlight'], 0 if blink else 2)
                 ellipse_ring(surf, x, y, 18, 8, ring or C['highlight'], 2 if blink else 0)
