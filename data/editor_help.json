@@ -21,8 +21,8 @@
    "title": "LINKS",
    "picture": "ed_links",
    "text": [
-    "ENTER on a link spot cycles it: NONE, ROAD, RIVER, BRIDGE.",
-    "Roads and bridges let everyone pass. Rivers only let helicopters cross, but units can shoot across.",
+    "ENTER on a link: NONE, ROAD, RIVER, BRIDGE.",
+    "Roads and bridges: everyone passes. Rivers: only helicopters, but anyone shoots across. NONE: a forest or mountains in battle, nobody gets through.",
     "On a diagonal spot, ENTER adds diagonal roads: one way, the other, or both."
    ]
   },

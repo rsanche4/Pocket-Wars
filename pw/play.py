@@ -65,6 +65,7 @@ class Play:
         self.script, self.wait = None, None
         self.banner = self.cutin = None
         self.before = None                  # the screen just before a battle scene (see fight)
+        self.leaving = None                 # (when, which icon, (turn, side)): a reinforcement icon leaving the top bar
         self.pass_screen = False
         self.camera = None
         self.peek = None                    # (a, b, counts) while you look around before choosing to move in
@@ -145,6 +146,7 @@ class Play:
     def drop(self, i):
         """Show the soldier just placed at outpost i parachuting in (it lands with the 'place' sound)."""
         unit = self.g.units[i][-1]
+        self.leaving = (self.now, self.g.to_place, (self.g.turn, self.g.cur))     # its icon drops out of the top bar
         if self.speed and self.seen_by(i):
             self.field.drops.append(Drop(i, unit, .65 if self.speed == 1 else .35, self.now))
         elif self.seen_by(i):
@@ -920,8 +922,8 @@ class Play:
         col = C['grey'] if g.phase == 'over' else self.phase_color()     # turns red while choosing a target
         rect(surf, x - 2, 1, text_width(phase) + 4, TOP - 3, col)
         text(surf, phase, x, 3, C['ink'])
-        if g.phase == 'gather' and g.to_place > 0:
-            text(surf, f'PLACE {g.to_place}', x + text_width(phase) + 6, 3, C['white'])
+        if g.phase == 'gather':
+            self.draw_reinforcements(surf, now, x + text_width(phase) + 6)
         if self.settings['timer'] and not self.bot() and g.phase != 'over':
             left = max(0, math.ceil(self.time_left))
             rect(surf, SW - 34, 1, 33, 11, C['red'] if left <= 10 and int(now / .26) % 2 else C['ink'])
@@ -930,6 +932,28 @@ class Play:
             enemy = g.hq_unit(1 - p)
             known = vis is None or g.hq[1 - p] in vis
             text(surf, f"ENEMY HQ {enemy.hp if enemy and known else '?'}", SW - 3, 3, SIDES[1 - p]['main'], 1, 'r', C['ink'])
+
+    def draw_reinforcements(self, surf, now, x0):
+        """The soldiers still to place, one icon each, in the top bar; the one just placed drops out of the bar and
+        fades. More than fit: the last spot says +N."""
+        p, n = self.g.cur, self.g.to_place
+        icon = unit_image('icons', 'soldier', p)
+        step = icon.get_width() + 1
+        room = (SW - 80 - x0) // step                    # stop short of ENEMY HQ / the timer on the right
+        shown = n if n <= room else room - 2
+        more = f'+{n - shown}' if shown < n else ''
+        if n:                                            # a light strip behind them, so both sides' colours stand out
+            rect(surf, x0 - 2, 1, shown * step + (text_width(more) + 2 if more else 0) + 3, TOP - 2, C['paper'])
+        for k in range(shown):
+            blit(surf, icon, x0 + k * step, 1)
+        if more:
+            text(surf, more, x0 + shown * step + 1, 3, C['ink'])
+        if self.leaving and self.leaving[2] == (self.g.turn, p) and self.leaving[1] < room:
+            t = (now - self.leaving[0]) / .45
+            if t < 1:
+                gone = icon.copy()
+                gone.set_alpha(round(255 * (1 - t)))
+                blit(surf, gone, x0 + self.leaving[1] * step, 1 + round(10 * t))
 
     def draw_info(self, surf, vis):
         g, y0, i = self.g, SH - BOTTOM, self.cur

@@ -20,6 +20,11 @@ py tools/make_ui.py target arrow_head)
                         stretched to fit). A map theme can have its own: assets/terrain/<theme>/sky.png.
   cloud1.png ...        clouds drifting slowly across the battle sky, one picture each. Every cloud*.png in assets/ui
                         is used (add cloud4.png and it shows up too; delete them all for a clear sky).
+
+And in each map theme's folder, assets/terrain/<theme>/:
+  blocked.png           what stands between two neighbouring outposts that have no road or river between them (nobody
+                        can cross, not even helicopters): a forest on grass, mountains on desert and snow, boulders on
+                        the beach. Its bottom middle sits just below the middle of the gap; about 34x30 fits the gap.
 """
 import math
 import os
@@ -173,12 +178,74 @@ def cloud(puffs, w, h):
     return s
 
 
+def tree(s, cx, by, r, leaf, shade, light):
+    """A round leafy tree standing at (cx, by): a short trunk, the crown shaded at the bottom right."""
+    s.fill(pygame.Color('#6b4a2b'), (cx - 1, by - 3, 2, 3))
+    cy = by - 2 - r
+    pygame.draw.circle(s, shade, (cx, cy), r)
+    pygame.draw.circle(s, leaf, (cx - 1, cy - 1), r - 1)
+    pygame.draw.circle(s, light, (cx - r // 3 - 1, cy - r // 3 - 1), max(1, r // 3))
+
+
+def pine(s, cx, by, h, leaf, shade):
+    """A small pine tree standing at (cx, by)."""
+    s.fill(pygame.Color('#6b4a2b'), (cx - 1, by - 2, 2, 2))
+    pygame.draw.polygon(s, shade, [(cx, by - h), (cx + h // 2, by - 2), (cx, by - 2)])
+    pygame.draw.polygon(s, leaf, [(cx, by - h), (cx - h // 2, by - 2), (cx, by - 2)])
+
+
+def mountain(s, cx, by, half, h, lit, shade, cap=None, cap_shade=None):
+    """A peak standing on (cx, by): the left face lit, the right face in shadow, and an optional snowcap."""
+    top, ridge = (cx, by - h), (cx + half // 5, by)
+    pygame.draw.polygon(s, lit, [(cx - half, by), top, ridge])
+    pygame.draw.polygon(s, shade, [top, (cx + half, by), ridge])
+    if cap:
+        k = .38                                                          # how far down the snow reaches
+        left, right = (cx - half * k, by - h * (1 - k)), (cx + half * k, by - h * (1 - k))
+        mid = (cx + half // 5 * k, by - h * (1 - k))
+        teeth = [left, (cx - half * k / 2, by - h * (1 - k) + 2), mid]     # a ragged bottom edge
+        pygame.draw.polygon(s, cap, [top] + teeth)
+        pygame.draw.polygon(s, cap_shade, [top, mid, (cx + half * k / 2, by - h * (1 - k) + 2), right])
+
+
+def boulder(s, cx, cy, rx, ry, lit, shade, light):
+    pygame.draw.ellipse(s, shade, (cx - rx, cy - ry, rx * 2, ry * 2))
+    pygame.draw.ellipse(s, lit, (cx - rx, cy - ry, rx * 2 - 2, ry * 2 - 2))
+    pygame.draw.ellipse(s, light, (cx - rx + 2, cy - ry + 1, max(2, rx // 2), max(2, ry // 2)))
+
+
+def blocked(theme):
+    """34x30: what fills the gap between two outposts with no road or river between them."""
+    s = surface(34, 30)
+    col = pygame.Color
+    if theme == 'grass':                                   # a forest: a back row of darker trees, two in front
+        for x in (7, 17, 27):
+            tree(s, x, 21, 7, col('#3d7327'), col('#2f5a22'), col('#4a8a2c'))
+        for x in (12, 23):
+            tree(s, x, 30, 7, col('#4a8a2c'), col('#2f5a22'), col('#5e9e38'))
+    elif theme == 'snow':                                  # snowy mountains with a pine at the foot
+        mountain(s, 20, 29, 14, 26, col('#a8aa9c'), col('#76786c'), col('#ffffff'), col('#d6e6f2'))
+        mountain(s, 9, 30, 9, 16, col('#a8aa9c'), col('#76786c'), col('#ffffff'), col('#d6e6f2'))
+        pine(s, 29, 30, 9, col('#4a8a2c'), col('#2f5a22'))
+    elif theme == 'desert':                                # red rock mountains
+        mountain(s, 20, 29, 14, 24, col('#c07a45'), col('#8e5236'))
+        mountain(s, 9, 30, 9, 15, col('#d08c55'), col('#9c5c38'))
+        mountain(s, 29, 30, 5, 9, col('#d08c55'), col('#9c5c38'))
+    else:                                                  # beach: a pile of boulders
+        for cx, cy, rx, ry in ((17, 17, 10, 8), (8, 23, 7, 6), (26, 23, 7, 6), (17, 26, 6, 4)):
+            boulder(s, cx, cy, rx, ry, col('#a8aa9c'), col('#76786c'), col('#c4c6ba'))
+    return s
+
+
 RECIPES = {'target': target, 'target_off': target_off, 'dust': dust,
            'arrow_body': arrow_body, 'arrow_head': arrow_head, 'arrow_head_diagonal': arrow_head_diagonal,
            'arrow_start': arrow_start, 'sky': sky,
            'cloud1': lambda: cloud([(10, 14, 7), (20, 9, 9), (31, 11, 8), (40, 15, 6)], 48, 22),
            'cloud2': lambda: cloud([(8, 10, 6), (17, 7, 7), (27, 10, 6)], 35, 17),
            'cloud3': lambda: cloud([(10, 17, 8), (22, 11, 10), (35, 9, 9), (47, 13, 8), (56, 18, 6)], 64, 25)}
+for _theme in ('grass', 'desert', 'beach', 'snow'):
+    RECIPES['blocked_' + _theme] = lambda theme=_theme: blocked(theme)
+WHERE = {'blocked_' + t: os.path.join(ROOT, 'assets', 'terrain', t, 'blocked.png') for t in ('grass', 'desert', 'beach', 'snow')}
 for _side in range(2):
     RECIPES['parachute_' + SIDE_FILE[_side]] = lambda side=_side: parachute(side)
 
@@ -187,5 +254,5 @@ if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     for name in sys.argv[1:] or RECIPES:
         img = RECIPES[name]()
-        pygame.image.save(img, os.path.join(OUT, name + '.png'))
+        pygame.image.save(img, WHERE.get(name, os.path.join(OUT, name + '.png')))
         print(f'{name + ".png":22s} {img.get_width()}x{img.get_height()}')

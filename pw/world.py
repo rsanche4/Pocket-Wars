@@ -1,12 +1,13 @@
 """The ground under a battle, built once per map from the tiles in assets/terrain/<theme>/:
 ground.png and water.png repeat like wallpaper, road.png is a strip repeated along each road, bridge.png sits on each
-bridge, and decor.png (trees etc.) and rock.png are scattered where nothing else is."""
+bridge, blocked.png (a forest, mountains...) fills the gap between neighbouring outposts that aren't linked, and
+decor.png (trees etc.) and rock.png are scattered where nothing else is."""
 import math
 import random
 import pygame
 
 from .data import STEP_X, STEP_Y
-from .gfx import image, THEMES, C
+from .gfx import image, has_image, THEMES, C
 
 KINDS = ['bunker', 'town', 'watchtower', 'town', 'bunker', 'watchtower', 'town']
 
@@ -107,6 +108,21 @@ def build_world(m, k):
             for s in range(2, n - 1):
                 x, y = a.x + (b.x - a.x) * s / n, a.y + (b.y - a.y) * s / n
                 world.blit(marker, (sc(x - 5), sc(y - 5)))
+
+    # what blocks the way between two neighbouring outposts that have no road or river between them (a forest,
+    # mountains...): so it's clear why nobody, not even a helicopter, can get from one to the other
+    if has_image(f'terrain/{m.theme}/blocked.png'):
+        wall = tile('blocked')
+        shape = pygame.mask.from_surface(wall).to_surface(setcolor=white, unsetcolor=(0, 0, 0, 0))
+        at = {(n.col, n.row): i for i, n in enumerate(nodes)}
+        linked = {frozenset((e.a, e.b)) for e in links}
+        for (c, r), i in at.items():
+            for j in (at.get((c + 1, r)), at.get((c, r + 1))):         # the outpost to the right, and the one below
+                if j is not None and frozenset((i, j)) not in linked:
+                    a, b = nodes[i], nodes[j]
+                    spot = wall.get_rect(midbottom=(sc((a.x + b.x) / 2), sc((a.y + b.y) / 2) + 6))
+                    world.blit(wall, spot)
+                    roads.blit(shape, spot)                              # (keeps the scenery below off it)
 
     # scenery, scattered where it won't cover outposts or roads, standing on dry land (same spots every time for a
     # map). The lower half of a tree or rock (its trunk or base) must be on land, though leaves may lean over a shore.

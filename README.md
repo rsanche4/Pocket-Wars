@@ -92,6 +92,11 @@ The battle scenes happen outdoors:
 - The ground is the map theme's own `ground.png`, with its `road.png` under the units when a road joins the two
   outposts, or its `water.png` (and `bridge.png`) between them when they fight across a river. Nothing extra to draw.
 
+Between two neighbouring outposts with no road or river at all, the battlefield shows the theme's `blocked.png`
+(`assets/terrain/<theme>/blocked.png`, about 34x30): a forest on grass, mountains on desert and snow, boulders on the
+beach, so it's clear nobody can get through, not even a helicopter. Its bottom middle sits just below the middle of
+the gap. `py tools/make_ui.py blocked_grass` (or `_desert`, `_beach`, `_snow`) remakes one.
+
 The phase colours (rings, the top-bar tag and the big splash) are in `data/style.json`: `phase_gather` gold,
 `phase_march` blue, `phase_attack` orange (choosing where to attack from), `phase_target` red (choosing a target).
 

@@ -84,6 +84,7 @@
    "text": [
     "ROADS and BRIDGES: anyone can cross.",
     "RIVERS: only helicopters cross, but anyone can shoot across one.",
+    "FORESTS and MOUNTAINS: nobody crosses or shoots across them.",
     "BARRACKS (+1 badge): one more soldier every turn you hold it."
    ]
   },
