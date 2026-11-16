@@ -97,7 +97,7 @@ The phase colours (rings, the top-bar tag and the big splash) are in `data/style
 
 ## Sound effects
 
-Every sound is a file in `assets/sfx/` (35 of them, e.g. `cursor.wav`, `shot_tank.wav`, `turn_green.wav`).
+Every sound is a file in `assets/sfx/` (34 of them, e.g. `cursor.wav`, `shot_tank.wav`, `turn_green.wav`).
 Replace any with your own: same name, WAV, OGG or MP3. A missing file is simply silent.
 `tools/make_sfx.py` made the originals in a Game Boy Advance style; running it again overwrites them,
 so only run it for names you haven't replaced (e.g. `py tools/make_sfx.py cursor select`).

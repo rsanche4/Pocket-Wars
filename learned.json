@@ -1,5 +1,5 @@
 {
- "games": 6,
+ "games": 7,
  "you_won": 1,
  "styles": {
   "balanced": {
@@ -15,7 +15,7 @@
    "lost": 0
   },
   "air power": {
-   "won": 3,
+   "won": 4,
    "lost": 0
   },
   "armor": {
@@ -28,11 +28,11 @@
   }
  },
  "you": {
-  "turns": 56,
+  "turns": 60,
   "built": {
    "halftrack": 15,
-   "tank": 4,
-   "helicopter": 11
+   "tank": 5,
+   "helicopter": 12
   }
  }
 }

@@ -219,10 +219,8 @@ class Play:
                 sound.play('attack_phase')
 
     def game_over(self):
-        w = self.g.winner
         self.ended = True
-        solo = self.bots[0] != self.bots[1]
-        sound.play('defeat' if solo and w != self.human_side() else 'victory')
+        sound.play('victory')                       # whoever won, the fanfare and the victory music play for them
         sound.music('victory', loop=False)
         if self.memory is not None:
             learn.record(self.memory, self.g, self.g.learning['you'], self.g.learning['style'])
