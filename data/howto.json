@@ -32,7 +32,7 @@
    "picture": "buy",
    "text": [
     "After placing, you may build ONE vehicle. Pay with soldiers standing on the same outpost; the vehicle appears right there.",
-    "New vehicles can march and attack that same turn."
+    "Your most hurt soldiers pay first, and the vehicle always arrives at full HP. New vehicles can march and attack that same turn."
    ]
   },
   {

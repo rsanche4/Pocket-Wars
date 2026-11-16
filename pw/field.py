@@ -134,6 +134,14 @@ class Field:
         for e in self.g.map.links:
             if e.a in vis and e.b in vis:
                 pygame.draw.line(dark, clear, self.screen_pos(e.a, cam), self.screen_pos(e.b, cam), round(46 * self.k / .35))
+        # the middle of a grid square: clear it when you can see at least 3 of its corner outposts (the clearings
+        # above don't reach that far, which left black patches surrounded by outposts you can see)
+        at = {(n.col, n.row): i for i, n in enumerate(self.g.map.nodes)}
+        for c, r in {(c - dc, r - dr) for c, r in at for dc in (0, 1) for dr in (0, 1)}:     # every square touching one
+            corners = [at.get(p) for p in ((c, r), (c + 1, r), (c + 1, r + 1), (c, r + 1))]
+            seen = [i for i in corners if i is not None and i in vis]
+            if len(seen) >= 3:
+                pygame.draw.polygon(dark, clear, [self.screen_pos(i, cam) for i in seen])
         surf.blit(dark, (0, 0))
 
     def draw_units(self, surf, i, x, y, side, now):

@@ -209,15 +209,11 @@ class Game:
         self.totals[self.cur]['recruited'] += 1
 
     def buy(self, i, t):
-        """Build one vehicle at outpost i, paid with soldiers standing there."""
-        cost = UNITS[t]['cost']
-        keep = []
-        for u in self.units[i]:
-            if u.type == 'soldier' and cost > 0:
-                cost -= 1
-            else:
-                keep.append(u)
-        self.units[i] = keep
+        """Build one vehicle at outpost i, paid with soldiers standing there: the most hurt ones pay first (the
+        vehicle is new either way, so the healthiest soldiers stay on)."""
+        soldiers = sorted((u for u in self.units[i] if u.type == 'soldier'), key=lambda u: u.hp)
+        pay = {u.id for u in soldiers[:UNITS[t]['cost']]}
+        self.units[i] = [u for u in self.units[i] if u.id not in pay]
         self.add(i, self.cur, t)
         self.bought = True
         self.totals[self.cur]['built'] += 1
