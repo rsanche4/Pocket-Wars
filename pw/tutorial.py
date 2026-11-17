@@ -9,7 +9,8 @@ Until the hand-off it runs on rails, so every player sees the same lessons at th
   turn 1  place a soldier by the bridge, END TURN                       (Tan quietly sneaks a hurt soldier out)
   turn 3  place a soldier on a barracks, NEXT: MARCH, march the HQ's half-track across the bridge - Tan shows up -
           attack her lone soldier, move in or stay put, END TURN          (Tan's turn 4: she does nothing)
-  turn 5  the HQ talk and the hand-off; from here it's a normal battle against the Normal CPU.
+  turn 5  the HQ talk, then a practice turn: you play it however you like  (Tan's turn 6: she does nothing)
+  turn 7  the hand-off; from here it's a normal battle against the Normal CPU.
 step() says what you may do right now (which outposts, which menu choices); the battle screen greys out the rest,
 lights up the right outpost, puts the cursor on it and shows a hint.
 """
@@ -69,8 +70,8 @@ class Tutorial:
         """What you may do right now, or None once you're free. Keys: place, march_from, march_to, attack_from,
         target (sets of outposts), items (menu choices from GATED you may pick) and hint (the bottom line)."""
         g, s = self.play.g, self.spot
-        if self.handed_off or g.cur != 0 or g.phase == 'over':
-            return None
+        if self.handed_off or 'hq' in self.played or g.cur != 0 or g.phase == 'over':
+            return None                   # (after the HQ talk: a free practice turn before the hand-off)
         if g.turn == 1:
             if g.to_place:
                 return {'place': {s['bridge']}, 'hint': 'ENTER: PLACE YOUR SOLDIER BY THE BRIDGE'}
@@ -127,7 +128,7 @@ class Tutorial:
         """Has scene sid's moment come? (Scenes chained to the one before just say True.)"""
         p, g = self.play, self.play.g
         yours = g.cur == 0
-        if sid in ('briefing', 'first_contact', 'attack', 'hand_off'):
+        if sid in ('briefing', 'first_contact', 'attack'):
             return True
         if sid == 'reinforcements':
             return yours and g.phase == 'gather' and g.to_place > 0
@@ -149,6 +150,8 @@ class Tutorial:
             return not p.menu and not p.script and p.mode == 'cursor'
         if sid == 'hq':
             return yours and g.turn >= 5 and g.phase == 'gather'
+        if sid == 'hand_off':             # your turn after the practice turn
+            return yours and g.phase == 'gather' and g.turn > self.played['hq']
         return False
 
     def settled(self, now):
@@ -235,7 +238,7 @@ class Tutorial:
     def tan_turn(self):
         """Tan's turns while the tutorial lasts (yields actions like ai.turn). Her first: a hurt soldier lands out of
         sight and walks to the barracks across the river from you, ready to be found. Her second: nothing (her
-        reinforcements just stay home)."""
+        reinforcements just stay home), and the same while you practise."""
         g, s = self.play.g, self.spot
         if g.turn == 2:
             yield 'place', s['tan_start']
