@@ -55,7 +55,7 @@
    "title": "MAPAS GENERADOS",
    "picture": "ed_mirror",
    "text": [
-    "+ GENERAR MAPA en la lista de mapas arma un mapa justo y espejado con unos pocos ajustes. Usa OTRO hasta que te guste, y luego GUARDARLO o EDITARLO antes.",
+    "+ GENERAR MAPA arma un mapa espejado con unos pocos ajustes. Con EQUILIBRIO: PAREJO lo prueba antes con partidas rápidas de la CPU. Usa OTRO hasta que te guste; luego GUARDARLO o EDITARLO.",
     "¿Arruinaste un mapa que venía con el juego? VOLVER AL ORIGINAL en el menú del editor lo deja como estaba."
    ]
   }

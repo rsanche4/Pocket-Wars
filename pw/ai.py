@@ -285,7 +285,9 @@ def hard_want(g, p):
     vs = visible(g, p)
     habits = getattr(g, 'habits', {}).get(1 - p)
     expect = (lambda t: habits['mix'].get(t, 0) * AI['learn_counter']) if habits else (lambda t: 0)
-    e = lambda t: g.vehicles(1 - p, t, vs) + expect(t)
+    # enemy vehicles next to our HQ count three times: a raid there gets answered with the right units
+    near = lambda t: sum(u.type == t for j in g.adj[g.hq[p]] for u in g.units[j] if u.side != p) if g.hq[p] >= 0 else 0
+    e = lambda t: g.vehicles(1 - p, t, vs) + expect(t) + 2 * near(t)
     m = lambda t: g.vehicles(p, t)
     score = {'halftrack': W['bJ'] + e('helicopter') - .4 * e('tank') - .25 * m('halftrack'),
              'tank': W['bT'] + .5 * e('halftrack') + .1 * e('soldier') - e('helicopter') - .25 * m('tank'),

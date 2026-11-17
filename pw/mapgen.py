@@ -7,10 +7,15 @@ so both armies always get the same map. Step by step, on a full grid of roads:
   3. rivers: lines of river across the map,     7. diagonal roads.
   4. ... with bridges wherever needed to cross. 8. barracks, mostly towards the middle.
 After every change the map must still be fair to play (see playable()), or that change is undone.
+
+A mirrored map can still favour one side: Green moves first, and some layouts reward that (or punish it). BALANCE: FAIR
+checks with quick CPU-vs-CPU games and keeps a map where both sides win about as often (see fair_search).
 """
 import random
 
+from .ai import play_turn
 from .data import parse_map, map_problems, reachable, road_steps
+from .rules import Game
 
 OPTIONS = {
     'size': ['SMALL', 'MEDIUM', 'LARGE', 'HUGE'],
@@ -19,8 +24,14 @@ OPTIONS = {
     'roads': ['FULL', 'GAPS', 'WINDING'],
     'barracks': ['FEW', 'SOME', 'MANY'],
     'diagonals': ['OFF', 'SOME'],
+    'balance': ['RANDOM', 'FAIR'],
 }
-DEFAULTS = {'size': 'MEDIUM', 'theme': 'RANDOM', 'rivers': 'FEW', 'roads': 'GAPS', 'barracks': 'SOME', 'diagonals': 'SOME'}
+DEFAULTS = {'size': 'MEDIUM', 'theme': 'RANDOM', 'rivers': 'FEW', 'roads': 'GAPS', 'barracks': 'SOME', 'diagonals': 'SOME',
+            'balance': 'RANDOM'}
+# BALANCE: FAIR. Each map tried gets QUICK test games, and the clearly lopsided ones are dropped there; the rest play on
+# to GAMES. The first where Green wins within CLOSE of half is kept. At most TRIES maps and BUDGET games in all: then the
+# fairest one found is kept (a map that isn't perfect is fine; it just shouldn't be lopsided).
+FAIR = {'quick': 30, 'games': 120, 'loose': .18, 'close': .07, 'tries': 6, 'budget': 480}
 SIZES = {'SMALL': [(4, 3), (5, 3), (6, 2)], 'MEDIUM': [(6, 4), (5, 5), (7, 3)],
          'LARGE': [(7, 5), (8, 4), (6, 6)], 'HUGE': [(8, 6), (9, 6), (9, 7)]}        # (outposts across, down)
 WORDS = {
@@ -52,6 +63,45 @@ def generate(settings, seed, taken=()):
     blurb = (f"Made by the map generator: {text.count('G')} barracks, {text.count('=')} "
              f"bridge{'' if text.count('=') == 1 else 's'} and {text.count('~')} river crossings.")
     return {'name': name, 'theme': theme, 'blurb': blurb, 'art': art}
+
+
+def test_game(m, seed):
+    """One quick Normal-vs-Normal game on map m: 1 if Green wins, 0 if Tan does, .5 for a draw. The game's random
+    numbers come from seed (so the same map always tests the same), and everyone else's are left as they were."""
+    outside = random.getstate()
+    random.seed(seed)
+    g = Game(m, 'off')
+    while g.phase != 'over' and g.turn <= 300:
+        play_turn(g, 'normal')
+    random.setstate(outside)
+    return .5 if g.phase != 'over' else 1 - g.winner
+
+
+def fair_search(settings, seed, taken=()):
+    """BALANCE: FAIR. Like generate, but tries maps from a few seeds (seed's own first) and tests each (see FAIR).
+    A generator: after every test game it yields (how far along, 0-1; the map being tested), so the screen can keep
+    moving; it returns the map kept, whose 'green_wins' is the share of test games Green won. Same settings and
+    seed, same map."""
+    rng, spent, best = random.Random(seed), 0, None
+    for n in range(FAIR['tries']):
+        d = generate(settings, seed if n == 0 else rng.randrange(1 << 30), taken)
+        m, wins, played = parse_map(d), 0, 0
+        while played < FAIR['games'] and spent < FAIR['budget']:
+            wins += test_game(m, seed * 7 + n * 1000 + played)
+            played, spent = played + 1, spent + 1
+            yield spent / FAIR['budget'], d
+            if played == FAIR['quick'] and abs(wins / played - .5) > FAIR['loose']:
+                break
+        d['green_wins'] = wins / played
+        off = abs(d['green_wins'] - .5)
+        if played == FAIR['games'] and off <= FAIR['close']:
+            return d
+        rank = (played >= FAIR['games'], -off)          # fully tested first, then the closest to even
+        if best is None or rank > best[0]:
+            best = (rank, d)
+        if spent >= FAIR['budget']:
+            break
+    return best[1]
 
 
 def blank_art(cols, rows):

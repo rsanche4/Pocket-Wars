@@ -170,7 +170,7 @@ class RecordingList:
                      (f"GREEN: {rec['players'][0]}", SIDES[0]['dark']), (f"TAN: {rec['players'][1]}", SIDES[1]['dark']),
                      (f"FOG: {rec['fog'].upper()}", C['ink']), (f"TURNS: {rec['turns']}", C['ink']),
                      (result_text(rec), C['olive']), ('', None), (f'SIZE: {max(1, round(size / 1024))} KB', C['dim'])]
-            if rec.get('game') != net.game_id():
+            if not net.same_stats(rec.get('game')):
                 lines.append(('MADE WITH OTHER UNIT STATS:', C['red']))
                 lines.append(('IT MAY NOT PLAY BACK RIGHT', C['red']))
             y = 26

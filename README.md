@@ -19,7 +19,8 @@ Keys: ARROWS move, ENTER (or Z, SPACE) select, ESC (or X) back, F11 full screen.
 - **Player vs Player**: HOTSEAT on one computer, or ONLINE on two (see below).
 - **Recordings**: turn RECORD on in the battle setup, then watch battles back from RECORDINGS.
 - **Manual**: how to play, page by page.
-- **Map editor**: build your own maps, or let GENERATE MAP make a fair one.
+- **Map editor**: build your own maps, or let GENERATE MAP make one. With BALANCE: FAIR it plays quick CPU-vs-CPU
+  test games first, so neither side is favoured (RANDOM skips that and can give lopsided, more surprising maps).
 - **Options**: sound, music, full screen, Hard's memory, and LANGUAGE (English or Spanish).
 
 Your settings are kept in `settings.json` (delete it to go back to the defaults).

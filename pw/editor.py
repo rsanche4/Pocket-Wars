@@ -7,12 +7,13 @@ picking them up. With MIRROR on, every change is copied to the opposite side, tu
 import math
 import os
 import random
+import time
 import pygame
 
 from . import sound
 from .data import ROOT, parse_map, over_water, map_problems, reachable, save_map, default_of, reset_map, load_maps, \
     missing_defaults, restore_defaults
-from .mapgen import generate, blank_art, OPTIONS, DEFAULTS
+from .mapgen import generate, fair_search, blank_art, OPTIONS, DEFAULTS
 from .gfx import C, SIDES, SW, SH, THEMES, rect, box, text, ellipse, digits
 from .menus import map_card
 
@@ -520,7 +521,8 @@ class MapList:
                 text(surf, line, 224, 30 + k * 12, C['ink'] if k < 2 else C['olive'] if 9 < k < 13 else C['dim'], 1, 'c')
         elif kind == 'generate':
             lines = ['LET THE GAME MAKE ONE.', '', 'PICK THE SIZE, THEME,', 'RIVERS, ROADS AND', 'BARRACKS, AND IT BUILDS',
-                     'A FAIR, READY TO PLAY', 'MAP. REROLL UNTIL YOU', 'LIKE IT, THEN SAVE IT', 'OR TWEAK IT IN THE EDITOR.']
+                     'A READY TO PLAY MAP.', 'BALANCE: FAIR TESTS IT', 'SO BOTH SIDES HAVE THE', 'SAME CHANCE.', '',
+                     'REROLL UNTIL YOU LIKE IT,', 'THEN SAVE IT OR TWEAK IT', 'IN THE EDITOR.']
             for k, line in enumerate(lines):
                 text(surf, line, 224, 40 + k * 12, C['ink'] if k == 0 else C['dim'], 1, 'c')
         elif kind == 'restore':
@@ -539,19 +541,24 @@ class MapList:
 class Generator:
     """Settings on the left, a live preview of the map they make on the right (see mapgen.py)."""
     LABELS = {'size': 'SIZE', 'theme': 'THEME', 'rivers': 'RIVERS', 'roads': 'ROADS', 'barracks': 'BARRACKS',
-              'diagonals': 'DIAGONALS'}
+              'diagonals': 'DIAGONALS', 'balance': 'BALANCE'}
+    STEP = .025                                           # seconds of fairness testing per frame (BALANCE: FAIR)
 
     def __init__(self, app):
         self.app, self.sel = app, len(OPTIONS)            # start on REROLL
         if not hasattr(app, 'gen_settings'):              # the settings are remembered while the game is open
             app.gen_settings = dict(DEFAULTS)
         self.settings = app.gen_settings
+        self.search, self.progress = None, 0              # BALANCE: FAIR, while the test games run (see update)
         self.seed = random.randrange(1 << 30)
         self.make()
 
     def make(self):
-        self.d = generate(self.settings, self.seed, [m.name for m in self.app.maps])
+        taken = [m.name for m in self.app.maps]
+        self.d = generate(self.settings, self.seed, taken)
         self.m = parse_map(self.d)
+        fair = self.settings['balance'] == 'FAIR'
+        self.search, self.progress = (fair_search(self.settings, self.seed, taken) if fair else None), 0
 
     def items(self):
         rows = []
@@ -568,11 +575,17 @@ class Generator:
         self.make()
 
     def edit(self):
+        if self.search:
+            sound.play('error')                           # still testing it
+            return
         e = Editor(self.app, self.m)
         e.saved = None                                    # not saved yet: leaving the editor will ask
         self.app.scene = e
 
     def save(self):
+        if self.search:
+            sound.play('error')
+            return
         path = save_map(self.d['name'], self.d['theme'], self.d['art'], blurb=self.d['blurb'])
         self.app.maps = load_maps()
         at = next((k for k, m in enumerate(self.app.maps) if m.path == path), 0)
@@ -595,14 +608,23 @@ class Generator:
                 it['adj'](1)
                 sound.play('adjust')
             else:
-                sound.play('save' if it['f'] == self.save else 'select')
+                if not (self.search and it['f'] in (self.save, self.edit)):
+                    sound.play('save' if it['f'] == self.save else 'select')
                 it['f']()
         elif k == 'b':
             sound.play('back')
             self.back()
 
     def update(self, now, dt):
-        pass
+        """BALANCE: FAIR: run test games for a moment each frame, showing each map as it is tried."""
+        end = time.perf_counter() + self.STEP
+        while self.search and time.perf_counter() < end:
+            try:
+                self.progress, d = next(self.search)
+            except StopIteration as done:
+                d, self.search = done.value, None
+            if d is not self.d:
+                self.d, self.m = d, parse_map(d)
 
     def draw(self, surf, now):
         surf.fill(C['olive_dark'])
@@ -625,6 +647,13 @@ class Generator:
         text(surf, self.d['name'], 235, 26, C['ink'], 1, 'c')
         h = map_card(surf, self.m, 157, 38, 156)
         tips = ['◀ ▶ CHANGE A SETTING', 'REROLL: ANOTHER MAP', 'EDIT IT: SEE AND TWEAK IT', 'SAVE IT: READY TO PLAY']
+        if self.search:
+            tips = ['TESTING HOW FAIR IT IS...', '', '', 'CPU TEST GAMES: {}%'.format(round(self.progress * 100))]
+            rect(surf, 175, 46 + h + 13, 120, 6, C['olive'])
+            rect(surf, 175, 46 + h + 13, round(120 * self.progress), 6, C['highlight'])
+        elif 'green_wins' in self.d:
+            green = round(self.d['green_wins'] * 100)
+            tips[0] = f'GREEN WON {green}% OF TESTS'
         for k, line in enumerate(tips):
             text(surf, line, 235, 46 + h + k * 10, C['olive'], 1, 'c')
 

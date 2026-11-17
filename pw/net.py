@@ -9,6 +9,7 @@ open_port); when the router won't, ONLINE HELP explains port forwarding. The inv
 address, its address on the home network and the port, so one code works both over the internet and on the same Wi-Fi.
 Only Python's own modules are used.
 """
+import functools
 import hashlib
 import ipaddress
 import json
@@ -21,7 +22,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 
-from .data import ROOT
+from .data import ROOT, load_json
 
 PORT = 47123                         # the port the host listens on (and asks its router to open)
 PROTOCOL = 1                         # bump when the messages change, so old and new games refuse to mix
@@ -30,10 +31,23 @@ IP_LOOKUP = 'https://api.ipify.org'  # asked for the host's internet address onl
 MAX_LINE = 2_000_000                 # a message bigger than this is nonsense: hang up
 
 
+@functools.cache
 def game_id():
-    """Both games must have the same rules and unit stats: this fingerprint is compared when a guest joins."""
+    """Both games must have the same rules and unit stats: this fingerprint of them is compared when a guest joins,
+    and kept in recordings. It is taken from the stats themselves, so how the file is laid out (its line endings, which
+    git changes from one computer to another, or its spacing) doesn't count."""
+    stats = json.dumps(load_json('data', 'units.json'), sort_keys=True, separators=(',', ':'))
+    return f'{PROTOCOL}-{hashlib.sha1(stats.encode()).hexdigest()[:10]}'
+
+
+@functools.cache
+def same_stats(fingerprint):
+    """Was a recording made with these unit stats? Recordings from before game_id looked at the stats themselves hold
+    a fingerprint of the file as it was, with either kind of line endings: those match too."""
     with open(os.path.join(ROOT, 'data', 'units.json'), 'rb') as f:
-        return f'{PROTOCOL}-{hashlib.sha1(f.read()).hexdigest()[:10]}'
+        lf = f.read().replace(b'\r\n', b'\n')
+    old = {f'{PROTOCOL}-{hashlib.sha1(b).hexdigest()[:10]}' for b in (lf, lf.replace(b'\n', b'\r\n'))}
+    return fingerprint == game_id() or fingerprint in old
 
 
 # ---------------------------------------------------------------------------------------------- the connection
