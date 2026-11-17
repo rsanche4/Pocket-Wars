@@ -9,7 +9,7 @@
    {"who": "green", "mood": "focus", "say": "If it falls, we lose the game. Protect it at all costs!"}
   ]},
   "reinforcements": {"when": "Turn 1, the moment you can place.", "lines": [
-   {"who": "green", "mood": "focus", "say": "Every turn starts with reinforcements: one free soldier, every single turn."},
+   {"who": "green", "mood": "focus", "say": "Every turn starts with reinforcements: one free soldier every single turn."},
    {"who": "green", "mood": "focus", "say": "You can see how many you have left to place at the top of the screen."},
    {"who": "green", "mood": "focus", "say": "Drop them on our outposts, or on an empty one right next to ours along a road."},
    {"who": "green", "mood": "happy", "say": "Go on, drop one in by the bridge. They love the parachute."}
