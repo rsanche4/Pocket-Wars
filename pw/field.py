@@ -58,8 +58,8 @@ class Drop:
 class Field:
     def __init__(self, game, k):
         self.g, self.k = game, k
-        self.world = build_world(game.map, k)
-        self.walls = obstacles(game.map, k)       # forests / mountains between unlinked outposts
+        self.world, scenery = build_world(game.map, k)
+        self.on_top = scenery + obstacles(game.map, k)     # trees and rocks, forests / mountains between unlinked outposts
         self.kinds = outpost_kinds(game.map)
         self.march = None              # a March being shown (its units are hidden from their outpost meanwhile)
         self.drops = []                # Drops (soldiers parachuting in) being shown
@@ -75,8 +75,9 @@ class Field:
         g, nodes = self.g, self.g.map.nodes
         blink = int(now / .26) % 2
         surf.blit(self.world, (-cam[0], -cam[1]))
-        # in layers: the outposts' pads, then the forests / mountains between unlinked outposts (their tops may
-        # overlap a pad), then the dark of blackout, then each outpost's ring, building, flag and units on top
+        # in layers: the outposts' pads, the dark of blackout, each outpost's ring, building, flag and units, then the
+        # scenery on top (trees, rocks, the forests / mountains between unlinked outposts: they may hide part of an
+        # outpost), then the cursor
         shown = []
         for i, n in enumerate(nodes):
             seen = vis is None or i in vis
@@ -90,10 +91,7 @@ class Field:
             ellipse(surf, x, y + 3, 15, 5, pygame.Color(0, 0, 0, 90))
             ellipse(surf, x, y + 1, 14, 5, C['neutral_pad_dark'] if side is None else SIDES[side]['pad'])
             ellipse(surf, x, y, 14, 5, C['neutral_pad'] if side is None else SIDES[side]['light'])
-        for wall, spot in self.walls:
-            surf.blit(wall, (spot.x - cam[0], spot.y - cam[1]))
-        if blackout and vis is not None:
-            self.draw_blackout(surf, cam, vis)
+        dark = self.draw_blackout(surf, cam, vis) if blackout and vis is not None else None
         for i, n, seen, x, y, side in shown:
             kind = self.kinds[i]
             if i in highlight:
@@ -120,8 +118,9 @@ class Field:
                 ellipse(surf, x - 6, y - 3, 6, 4, pygame.Color('#dfe2e6'))
                 ellipse(surf, x + 6, y - 3, 6, 4, pygame.Color('#f4f5f7'))
                 text(surf, '?', x - 2, y - 9, pygame.Color('#7d848c'))
-            if i == cursor and cursor_style == 'normal':
-                self.draw_cursor(surf, x, y, now)
+        self.draw_scenery(surf, cam, dark)
+        if cursor is not None and cursor_style == 'normal' and any(i == cursor for i, *_ in shown):
+            self.draw_cursor(surf, *self.screen_pos(cursor, cam), now)
         if self.march:
             self.draw_march(surf, cam, now)
         self.drops = [d for d in self.drops if not d.gone(now)]
@@ -132,7 +131,18 @@ class Field:
             x, y = self.screen_pos(cursor, cam)
             self.draw_target(surf, x, y, now, cursor_style == 'target')
 
+    def draw_scenery(self, surf, cam, dark=None):
+        """The trees, rocks, forests and mountains, over the outposts. In blackout (dark = its cover) they're cut out
+        wherever it's dark, so nothing sticks out of the black."""
+        layer = pygame.Surface(surf.get_size(), pygame.SRCALPHA) if dark else surf
+        for img, spot in self.on_top:
+            layer.blit(img, (spot.x - cam[0], spot.y - cam[1]))
+        if dark:
+            layer.blit(dark, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
+            surf.blit(layer, (0, 0))
+
     def draw_blackout(self, surf, cam, vis):
+        """Cover what the viewer can't see in the dark; returns the cover."""
         dark = blackout_layer().copy()
         clear = (0, 0, 0, 0)
         r = round(30 * self.k / .35)
@@ -151,6 +161,7 @@ class Field:
             if len(seen) >= 3:
                 pygame.draw.polygon(dark, clear, [self.screen_pos(i, cam) for i in seen])
         surf.blit(dark, (0, 0))
+        return dark
 
     def draw_units(self, surf, i, x, y, side, now):
         g = self.g

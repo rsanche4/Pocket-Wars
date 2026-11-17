@@ -1,9 +1,9 @@
 """The ground under a battle, built once per map from the tiles in assets/terrain/<theme>/:
 ground.png and water.png repeat like wallpaper, road.png is a strip repeated along each straight road, road_diagonal.png
-is one diagonal road (mirrored for the other direction), bridge.png sits on each bridge, and decor.png (trees etc.) and
-rock.png are scattered where nothing else is. blocked.png (a forest, mountains...) fills the gap between neighbouring
-outposts that aren't linked: it isn't part of the ground picture, the battlefield draws it over the outposts' pads
-(see obstacles)."""
+is one diagonal road (mirrored for the other direction), bridge.png sits on each bridge. decor.png (trees etc.) and
+rock.png are scattered where nothing else is, and blocked.png (a forest, mountains...) fills the gap between neighbouring
+outposts that aren't linked: those two aren't part of the ground picture, the battlefield draws them on top of the
+outposts (build_world's scenery list, and obstacles)."""
 import math
 import random
 import pygame
@@ -78,7 +78,8 @@ def diagonal_road(m, k, a, b):
 
 
 def build_world(m, k):
-    """The map's ground as one image, k = screen pixels per map unit."""
+    """The map's ground as one image, k = screen pixels per map unit, and its scenery: a list of (picture, where)
+    for the trees and rocks, which the battlefield draws on top of the outposts."""
     w, h = math.ceil(m.w * k), math.ceil(m.h * k)
     tile = lambda part: image(f'terrain/{m.theme}/{part}.png')
     sc = lambda v: round(v * k)
@@ -151,12 +152,12 @@ def build_world(m, k):
                 x, y = a.x + (b.x - a.x) * s / n, a.y + (b.y - a.y) * s / n
                 world.blit(marker, (sc(x - 5), sc(y - 5)))
 
-    # the forests / mountains between unlinked outposts are drawn by the battlefield, over the pads; just keep the
-    # scenery below off them
+    # the forests / mountains between unlinked outposts are drawn by the battlefield, on top of the outposts; just
+    # keep the scenery below off them
     for wall, spot in obstacles(m, k):
         roads.blit(pygame.mask.from_surface(wall).to_surface(setcolor=white, unsetcolor=(0, 0, 0, 0)), spot)
 
-    # scenery, scattered where it won't cover outposts or roads, standing on dry land (same spots every time for a
+    # scenery, scattered where it won't cover roads or come too close to outposts, standing on dry land (same spots every time for a
     # map). The lower half of a tree or rock (its trunk or base) must be on land, though leaves may lean over a shore.
     rnd = random.Random(len(m.name) * 977 + len(nodes) * 31)
     wet, roads = pygame.mask.from_surface(wet), pygame.mask.from_surface(roads)
@@ -180,11 +181,11 @@ def build_world(m, k):
             out.append((x, y, at))
         return out
 
+    scenery = []
     snug = 26 if m.theme == 'beach' else 0     # beach land is only a ring around each outpost: let scenery come closer
     for part, count, near, gap, foot in (('decor', m.w * m.h // 52000, 95, 70, 22), ('rock', m.w * m.h // 90000, 90, 60, 11)):
         img = tile(part)
         spots = free_spots(count, near - snug, gap, img, foot)
         taken.extend((x, y) for x, y, _ in spots)
-        for x, y, at in spots:
-            world.blit(img, at)
-    return world
+        scenery += [(img, img.get_rect(topleft=at)) for x, y, at in spots]
+    return world, scenery
