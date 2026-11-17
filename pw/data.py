@@ -4,7 +4,7 @@ Maps are small JSON files: {"name", "theme", "blurb", "art"}. Every map is a fil
 The "art" is a drawing made of text. Outposts sit on even rows and even columns; the characters between them are links:
     o outpost   G barracks (+1 soldier a turn)   H Green HQ   h Tan HQ   (space = nothing)
     - and |  road        ~ river (only helicopters cross)        = bridge
-    / \\ X   diagonal roads (on odd rows and odd columns)
+    / \\ X   diagonal roads (on odd rows and odd columns); over a river they are bridges (see over_water)
 """
 import json
 import os
@@ -61,6 +61,13 @@ class Map:
     path: str = ''
 
 
+def over_water(art, r, c):
+    """Does a river run under the diagonal spot art[r][c]? It does when any of the four links around it is a river or
+    a bridge: their water reaches the middle of the spot, where the diagonal roads cross. Those roads are bridges."""
+    return any(0 <= y < len(art) and 0 <= x < len(art[y]) and art[y][x] in '~='
+               for y, x in ((r - 1, c), (r + 1, c), (r, c - 1), (r, c + 1)))
+
+
 def parse_map(d, path=''):
     """Turn a map's text drawing into outposts (nodes) and the links between them."""
     art = d['art']
@@ -76,22 +83,23 @@ def parse_map(d, path=''):
                 m.nodes.append(Node(MARGIN_X + c // 2 * STEP_X, MARGIN_Y + r // 2 * STEP_Y, ch == 'G',
                                     0 if ch == 'H' else 1 if ch == 'h' else -1, c // 2, r // 2))
 
-    def link(p, q, ch):
+    def link(p, q, ch, bridge):
         if p in index and q in index and ch in '-|~=/\\X':
-            m.links.append(Link(index[p], index[q], 'river' if ch == '~' else 'road', ch == '='))
+            m.links.append(Link(index[p], index[q], 'river' if ch == '~' else 'road', bridge))
 
     for r in range(rows):
         for c in range(cols):
             ch = art[r][c]
             if r % 2 == 0 and c % 2 == 1:
-                link((r // 2, c // 2), (r // 2, c // 2 + 1), ch)
+                link((r // 2, c // 2), (r // 2, c // 2 + 1), ch, ch == '=')
             elif r % 2 == 1 and c % 2 == 0:
-                link((r // 2, c // 2), (r // 2 + 1, c // 2), ch)
+                link((r // 2, c // 2), (r // 2 + 1, c // 2), ch, ch == '=')
             elif r % 2 == 1 and c % 2 == 1:
+                wet = over_water(art, r, c)
                 if ch in '\\X':
-                    link((r // 2, c // 2), (r // 2 + 1, c // 2 + 1), '\\')
+                    link((r // 2, c // 2), (r // 2 + 1, c // 2 + 1), '\\', wet)
                 if ch in '/X':
-                    link((r // 2, c // 2 + 1), (r // 2 + 1, c // 2), '/')
+                    link((r // 2, c // 2 + 1), (r // 2 + 1, c // 2), '/', wet)
     m.w = 2 * MARGIN_X + cols // 2 * STEP_X
     m.h = 2 * MARGIN_Y + rows // 2 * STEP_Y
     return m

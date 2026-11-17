@@ -352,7 +352,7 @@ class Game:
                 x = next((u for u in self.units[a] if u.id == xid), None) if ok_spot(a) else None
                 y = next((u for u in self.units[b] if u.id == yid), None) if ok_spot(b) else None
                 return (ph == 'attack' and self.turn > 1 and b in self.adj[a] and x is not None and y is not None and
-                        x.side == p and y.side == 1 - p and x.type != 'hq' and x.id not in self.used and can_hit(x.type, y.type))
+                        x.side == p and y.side == 1 - p and x.id not in self.used and can_hit(x.type, y.type))
             if kind == 'move_in':
                 a, b, ids = args
                 can = {u.id for u in self.move_in_choices(a, b)} if self.cleared == (a, b) else set()

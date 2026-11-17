@@ -10,7 +10,7 @@ import random
 import pygame
 
 from . import sound
-from .data import ROOT, parse_map, map_problems, reachable, save_map, default_of, reset_map, load_maps, \
+from .data import ROOT, parse_map, over_water, map_problems, reachable, save_map, default_of, reset_map, load_maps, \
     missing_defaults, restore_defaults
 from .mapgen import generate, blank_art, OPTIONS, DEFAULTS
 from .gfx import C, SIDES, SW, SH, THEMES, rect, box, text, ellipse, digits
@@ -401,7 +401,7 @@ class Editor:
                 what = (f'{side_name(ch)} HQ · ENTER: PICK IT UP TO MOVE IT' if ch in 'Hh' else
                         f"OUTPOST: {'NONE' if ch == ' ' else 'OUTPOST' if ch == 'o' else 'BARRACKS'} · ENTER: CHANGE")
             elif y % 2 == 1 and x % 2 == 1:
-                what = f"DIAGONAL: {'NONE' if ch == ' ' else 'ROAD'} · ENTER: CHANGE"
+                what = f"DIAGONAL: {'NONE' if ch == ' ' else 'BRIDGE' if over_water(self.art, y, x) else 'ROAD'} · ENTER: CHANGE"
             else:
                 what = f"LINK: {'NONE' if ch == ' ' else 'RIVER' if ch == '~' else 'BRIDGE' if ch == '=' else 'ROAD'} · ENTER: CHANGE"
         text(surf, what, 4, SH - 19, C['ink'])

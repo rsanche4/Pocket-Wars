@@ -263,7 +263,8 @@ class Watch(Play):
     def halt(self):
         """Stop anything moving (the board stays as it is)."""
         self.script = self.wait = self.cutin = self.before = None
-        self.field.march, self.field.drops, self.banner = None, [], None
+        self.field.march = self.trail = None
+        self.field.drops, self.banner = [], None
         self.playing = False
 
     def phase_banner(self):

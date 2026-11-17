@@ -109,6 +109,8 @@ class Play:
         self.leaving = None                 # (when, which icon, (turn, side)): a reinforcement icon leaving the top bar
         self.pass_screen = False
         self.camera = None
+        self.traced = False                 # the cursor is following the other side's moves this turn (see look)
+        self.trail = None                   # the other side's group on the march, followed by the camera
         self.peek = None                    # (a, b, counts) while you look around before choosing to move in
         self.moods = [None, None]
         self.time_left = 0
@@ -200,7 +202,7 @@ class Play:
     def connection_lost(self):
         self.lost = True
         self.script = self.wait = self.cutin = self.before = None
-        self.field.march = None
+        self.field.march = self.trail = None
         m = pausing(Menu('CONNECTION LOST', [{'l': 'MAIN MENU', 'f': self.leave}],
                          sub='YOUR FRIEND LEFT, OR THE LINK DROPPED'))
         m.on_back = self.leave
@@ -290,17 +292,21 @@ class Play:
             return 'hurt'
         return 'focus' if g.cur == p and g.phase != 'gather' else 'happy'
 
-    def look(self, i):
-        """Move the cursor to where the CPU acts, when watching CPU vs CPU."""
-        if self.seen_by(i) and all(self.bots):
-            self.cur = i
+    def look(self, *spots):
+        """The other side's move (the CPU's, or your friend's online): the cursor goes to the first of spots you can
+        see, and the camera with it. Moves out of your sight show nothing, and hotseat players share the screen."""
+        if not self.bot():
+            return
+        i = next((i for i in spots if self.seen_by(i)), None)
+        if i is not None:
+            self.cur, self.traced = i, True
 
     # ------------------------------------------------------------------ turns
     def turn_started(self):
         g, p = self.g, self.g.cur
         if not (self.bot(p) and not self.bot(1 - p)):
             self.cur = g.hq[p]
-        self.mode, self.menu = 'cursor', None
+        self.mode, self.menu, self.traced = 'cursor', None, False
         self.time_left = self.settings['timer']
         if g.fog and not any(self.bots):
             self.pass_screen = True
@@ -374,9 +380,11 @@ class Play:
         self.menu = self.over_menu()
 
     def over_menu(self, sel=0):
+        """The menu at the end of a battle. VIEW MAP closes it to look over the final board (see key)."""
         w = self.g.winner
         again = [] if self.role else [{'l': 'PLAY AGAIN', 'f': self.app.tutorial if self.tutorial else self.app.start_battle}]
-        m = Menu(f"{SIDES[w]['name']} WINS!", [{'l': 'BATTLE STATS', 'f': self.show_stats}] + again +
+        m = Menu(f"{SIDES[w]['name']} WINS!", [{'l': 'BATTLE STATS', 'f': self.show_stats},
+                                                {'l': 'VIEW MAP', 'f': lambda: None}] + again +
                  [{'l': 'MAIN MENU', 'f': self.app.main_menu}],
             sub=f"{SIDES[1 - w]['name']} RESIGNED" if self.g.resigned else None, win=w)
         m.sel = sel
@@ -385,12 +393,12 @@ class Play:
     def show_stats(self):
         def back():
             self.app.scene = self
-            self.menu = self.over_menu(sel=1)          # back on the victory menu, on PLAY AGAIN (or MAIN MENU)
+            self.menu = self.over_menu(sel=2)          # back on the victory menu, on PLAY AGAIN (or MAIN MENU)
         self.app.scene = Stats(self.app, self.g, back)
 
     def resign(self, p):
         self.script = self.wait = self.cutin = self.before = None
-        self.field.march = None
+        self.field.march = self.trail = None
         self.apply(('resign', p), by=p)
         self.game_over()
 
@@ -524,15 +532,16 @@ class Play:
             yield self.pause(.2)
         elif kind == 'march':
             src, path, ids = action[1:]
-            self.look(src)
+            self.look(src, path[-1])
             yield self.pause(.2)
             yield from self.walk(src, path, ids)
         elif kind == 'fight':
             a, b, x, y, *dice = action[1:]
-            self.look(b)
+            self.look(b, a)
             yield self.pause(.12)
             return (yield from self.fight(a, b, x, y, dice[0] if dice else None))
         elif kind == 'move_in':
+            self.look(action[2], action[1])
             yield from self.walk(action[1], [action[1], action[2]], action[3], move_in=True)
         else:
             return self.apply(action)
@@ -545,13 +554,16 @@ class Play:
         if see and self.speed and units:    # (online, units marching out of the fog just appear when they arrive)
             m = March(path, units, .17 if self.speed < 1 else .3, self.now)
             self.field.march = m
+            if self.bot():
+                self.trail = m
             kind = 'heli' if all(flies(u.type) for u in units) else 'soldier' if all(u.type == 'soldier' for u in units) else 'vehicle'
             gap = {'soldier': .15, 'vehicle': .17, 'heli': .095}[kind]
             while not m.done(self.now):
                 sound.play('step_' + kind)
                 yield gap
-            self.field.march = None
+            self.field.march = self.trail = None
         self.apply(('move_in', src, dst, ids) if move_in else ('march', src, path, ids))
+        self.look(dst)
         if see and (free or move_in) and self.seen_by(dst):
             sound.play('capture')
 
@@ -867,6 +879,16 @@ class Play:
                     it['f']()
             return
         if g.phase == 'over':
+            if not self.ended:
+                return
+            if k in 'udlr':                # VIEW MAP: the final board, every unit showing, to wander around
+                j = self.node_toward(k)
+                if j is not None:
+                    self.cur = j
+                    sound.play('map_cursor')
+            elif k in 'eb':
+                self.menu = self.over_menu(sel=2)
+                sound.play('back')
             return
         busy = self.script is not None or self.bot()
         if k == 'b' and busy:
@@ -995,12 +1017,15 @@ class Play:
             h |= set(self.menu.pair)
         return h
 
-    def cam(self):
-        """Follows the cursor. With an attack or move-in pop-up open it looks at the two outposts instead and keeps
-        them in the top part of the view, so the pop-up can sit below them (menu_spot)."""
+    def cam(self, now):
+        """Follows the cursor, or the other side's group while it marches. With an attack or move-in pop-up open it
+        looks at the two outposts instead and keeps them in the top part of the view, so the pop-up can sit below them
+        (menu_spot)."""
         nodes = self.g.map.nodes
         x, y, frac = nodes[self.cur].x, nodes[self.cur].y, .5
-        if self.menu and self.menu.pair:
+        if self.trail:
+            x, y = (c / self.k for c in self.trail.position(self.field, now))
+        elif self.menu and self.menu.pair:
             a, b = (nodes[i] for i in self.menu.pair)
             x, y, frac = (a.x + b.x) / 2, (a.y + b.y) / 2, .3
         ww, wh = self.field.world.get_size()
@@ -1041,9 +1066,11 @@ class Play:
         surf.fill(C['background'])
         v = self.viewer_side()
         vis = g.sight(v) if v is not None else None
-        cam = self.cam()
+        cam = self.cam(now)
         mine = not self.script and not self.bot() and not self.pass_screen and g.phase != 'over'   # your move
-        show_cursor = self.cur if (not self.script and not self.bot()) or self.watching else None
+        show_cursor = self.cur if ((not self.script and not self.bot()) or self.watching
+                                   or (self.traced and not self.trail)        # (following the other side)
+                                   or (self.ended and not self.menu)) else None   # (VIEW MAP)
         style = 'normal'
         if self.mode == 'pick_target' and mine:
             style = 'target' if self.cur in g.targets(g.cur, self.src) and self.allowed('target', self.cur) else 'no_target'
@@ -1144,7 +1171,7 @@ class Play:
         else:
             enemy = g.hq_unit(1 - p)
             known = vis is None or g.hq[1 - p] in vis
-            text(surf, f"ENEMY HQ {enemy.hp if enemy and known else '?'}", SW - 3, 3, SIDES[1 - p]['main'], 1, 'r', C['ink'])
+            text(surf, f"ENEMY HQ {(enemy.hp if enemy else 0) if known else '?'}", SW - 3, 3, SIDES[1 - p]['main'], 1, 'r', C['ink'])
 
     def draw_reinforcements(self, surf, now, x0):
         """The soldiers still to place, one icon each, in the top bar; the one just placed drops out of the bar and
@@ -1199,7 +1226,7 @@ class Play:
     def hint(self):
         g, p, i, mode = self.g, self.g.cur, self.cur, self.mode
         if g.phase == 'over':
-            return ''
+            return 'THE FINAL BOARD · ENTER/ESC: BACK TO THE MENU' if self.ended and not self.menu else ''
         if self.bot():
             return f"{SIDES[p]['name']} IS ON THE MOVE..."
         if self.script:

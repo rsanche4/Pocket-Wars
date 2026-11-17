@@ -83,7 +83,8 @@ only the ones you want remade, e.g. `py tools/make_ui.py cursor` or `py tools/ma
 
 `theme` is grass, desert, beach or snow. In `art`, outposts sit on even rows and columns:
 `o` outpost, `G` barracks, `H` Green HQ, `h` Tan HQ. Between them: `-` `|` road, `~` river, `=` bridge,
-and `/` `\` `X` diagonal roads.
+and `/` `\` `X` diagonal roads. A diagonal road with a river next to it in the drawing (`~` or `=` right beside it)
+crosses that river on a bridge by itself, drawn with the theme's `bridge_diagonal.png`.
 
 ## Tools
 

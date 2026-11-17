@@ -35,6 +35,10 @@ And in each map theme's folder, assets/terrain/<theme>/:
                         stretched): on maps drawn a little bigger or smaller the ends reach a few pixels less or
                         further, so paint the road on out into the margin. This recipe draws the theme's road.png
                         turned at the angle, as the game used to; paint over it for a cleaner diagonal.
+  bridge_diagonal.png   the bridge on a diagonal road over a river, going DOWN-RIGHT like road_diagonal.png (mirrored
+                        the same way), pasted pixel for pixel over the road with its middle on the middle of the
+                        road (where the river crosses). This recipe draws the theme's bridge.png made longer and turned
+                        at the angle; paint over it for a cleaner one.
 """
 import math
 import os
@@ -272,6 +276,21 @@ def road_diagonal(theme):
     return s
 
 
+def bridge_diagonal(theme):
+    """The theme's bridge.png, two planks longer (a diagonal crosses more water), turned to run corner to corner."""
+    bridge = pygame.image.load(os.path.join(ROOT, 'assets', 'terrain', theme, 'bridge.png'))
+    w, h = bridge.get_size()
+    extra = 14                                       # copied from the middle: two planks of the starter art
+    strip = surface(w + extra, h)
+    strip.blit(bridge, (0, 0), (0, 0, w // 2, h))
+    strip.blit(bridge, (w // 2, 0), (5, 0, extra, h))
+    strip.blit(bridge, (w // 2 + extra, 0), (w // 2, 0, w - w // 2, h))
+    turned = pygame.transform.rotate(strip, -math.degrees(math.atan2(*reversed(DIAGONAL_STEP))))
+    s = surface(turned.get_width() + 2, turned.get_height() + 2)
+    s.blit(turned, (1, 1))
+    return s
+
+
 RECIPES = {'cursor': cursor, 'target': target, 'target_off': target_off, 'dust': dust,
            'arrow_body': arrow_body, 'arrow_head': arrow_head, 'arrow_head_diagonal': arrow_head_diagonal,
            'arrow_start': arrow_start, 'sky': sky,
@@ -283,7 +302,8 @@ WHERE = {}                                     # recipes saved in a theme's fold
 for _theme in THEMES:
     RECIPES['blocked_' + _theme] = lambda theme=_theme: blocked(theme)
     RECIPES['road_diagonal_' + _theme] = lambda theme=_theme: road_diagonal(theme)
-    for _part in ('blocked', 'road_diagonal'):
+    RECIPES['bridge_diagonal_' + _theme] = lambda theme=_theme: bridge_diagonal(theme)
+    for _part in ('blocked', 'road_diagonal', 'bridge_diagonal'):
         WHERE[f'{_part}_{_theme}'] = os.path.join(ROOT, 'assets', 'terrain', _theme, _part + '.png')
 for _side in range(2):
     RECIPES['parachute_' + SIDE_FILE[_side]] = lambda side=_side: parachute(side)

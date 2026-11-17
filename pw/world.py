@@ -1,6 +1,7 @@
 """The ground under a battle, built once per map from the tiles in assets/terrain/<theme>/:
 ground.png and water.png repeat like wallpaper, road.png is a strip repeated along each straight road, road_diagonal.png
-is one diagonal road (mirrored for the other direction), bridge.png sits on each bridge. decor.png (trees etc.) and
+is one diagonal road (mirrored for the other direction), bridge.png sits on each bridge and bridge_diagonal.png on
+each diagonal road over a river (mirrored the same way). decor.png (trees etc.) and
 rock.png are scattered where nothing else is, and blocked.png (a forest, mountains...) fills the gap between neighbouring
 outposts that aren't linked: those two aren't part of the ground picture, the battlefield draws them on top of the
 outposts (build_world's scenery list, and obstacles)."""
@@ -65,13 +66,13 @@ def obstacles(m, k):
     return out
 
 
-def diagonal_road(m, k, a, b):
-    """The theme's road_diagonal.png for the diagonal road from outpost a to b (mirrored if it goes down-left), and
-    where it goes: centred between them, pixel for pixel (stretching pixel art makes it ragged). None if the theme has no
-    such picture."""
-    if not has_image(f'terrain/{m.theme}/road_diagonal.png'):
+def diagonal_road(m, k, a, b, part='road_diagonal'):
+    """The theme's road_diagonal.png (or bridge_diagonal.png) for the diagonal road from outpost a to b (mirrored if it
+    goes down-left), and where it goes: centred between them, pixel for pixel (stretching pixel art makes it ragged).
+    None if the theme has no such picture."""
+    if not has_image(f'terrain/{m.theme}/{part}.png'):
         return None
-    img = image(f'terrain/{m.theme}/road_diagonal.png')
+    img = image(f'terrain/{m.theme}/{part}.png')
     if (b.x - a.x) * (b.y - a.y) < 0:
         img = pygame.transform.flip(img, True, False)
     return img, img.get_rect(center=(round((a.x + b.x) / 2 * k), round((a.y + b.y) / 2 * k)))
@@ -137,14 +138,19 @@ def build_world(m, k):
         center = (sc((a.x + b.x) / 2), sc((a.y + b.y) / 2))
         if e.kind == 'road':
             thick_line(roads, white, (sc(a.x), sc(a.y)), (sc(b.x), sc(b.y)), road.get_height() + 4)
-            drawn = diagonal_road(m, k, a, b) if a.x != b.x and a.y != b.y else None
+            diagonal = a.x != b.x and a.y != b.y
+            drawn = diagonal_road(m, k, a, b) if diagonal else None
             if drawn:                                   # a diagonal road: the theme's own picture of one
                 world.blit(*drawn)
             else:
                 strip = tiled((math.ceil(length), road.get_height()), road)
                 turned = pygame.transform.rotate(strip, -angle)
                 world.blit(turned, turned.get_rect(center=center))
-            if e.bridge:
+            if e.bridge and diagonal:
+                drawn = diagonal_road(m, k, a, b, 'bridge_diagonal')
+                if drawn:
+                    world.blit(*drawn)
+            elif e.bridge:
                 br = pygame.transform.rotate(tile('bridge'), -round(angle / 90) * 90)
                 world.blit(br, br.get_rect(center=center))
         else:
