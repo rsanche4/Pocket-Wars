@@ -370,10 +370,7 @@ class Watch(Play):
                 sound.play('back')
             return
         if k in 'udlr':
-            j = self.node_toward(k)
-            if j is not None:
-                self.cur = j
-                sound.play('map_cursor')
+            self.move_cursor(k)
         elif k == 'e':
             self.focus = 'bar'
             sound.play('select')

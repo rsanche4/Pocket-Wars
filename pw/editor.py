@@ -575,17 +575,11 @@ class Generator:
         self.make()
 
     def edit(self):
-        if self.search:
-            sound.play('error')                           # still testing it
-            return
         e = Editor(self.app, self.m)
         e.saved = None                                    # not saved yet: leaving the editor will ask
         self.app.scene = e
 
     def save(self):
-        if self.search:
-            sound.play('error')
-            return
         path = save_map(self.d['name'], self.d['theme'], self.d['art'], blurb=self.d['blurb'])
         self.app.maps = load_maps()
         at = next((k for k, m in enumerate(self.app.maps) if m.path == path), 0)
@@ -607,9 +601,10 @@ class Generator:
             if it.get('adj'):
                 it['adj'](1)
                 sound.play('adjust')
+            elif self.search and it['f'] in (self.save, self.edit):
+                sound.play('error')                       # BALANCE: FAIR is still testing the map
             else:
-                if not (self.search and it['f'] in (self.save, self.edit)):
-                    sound.play('save' if it['f'] == self.save else 'select')
+                sound.play('save' if it['f'] == self.save else 'select')
                 it['f']()
         elif k == 'b':
             sound.play('back')
@@ -648,7 +643,7 @@ class Generator:
         h = map_card(surf, self.m, 157, 38, 156)
         tips = ['◀ ▶ CHANGE A SETTING', 'REROLL: ANOTHER MAP', 'EDIT IT: SEE AND TWEAK IT', 'SAVE IT: READY TO PLAY']
         if self.search:
-            tips = ['TESTING HOW FAIR IT IS...', '', '', 'CPU TEST GAMES: {}%'.format(round(self.progress * 100))]
+            tips = ['TESTING HOW FAIR IT IS...', '', '', f'CPU TEST GAMES: {round(self.progress * 100)}%']
             rect(surf, 175, 46 + h + 13, 120, 6, C['olive'])
             rect(surf, 175, 46 + h + 13, round(120 * self.progress), 6, C['highlight'])
         elif 'green_wins' in self.d:

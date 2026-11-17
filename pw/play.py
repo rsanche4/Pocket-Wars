@@ -379,21 +379,22 @@ class Play:
             self.g.learning['memory'] = self.memory
         self.menu = self.over_menu()
 
-    def over_menu(self, sel=0):
-        """The menu at the end of a battle. VIEW MAP closes it to look over the final board (see key)."""
+    def over_menu(self, back=False):
+        """The menu at the end of a battle. VIEW MAP closes it to look over the final board (see key). back: coming
+        back to it from the stats or the map, so it starts on PLAY AGAIN (online: MAIN MENU)."""
         w = self.g.winner
         again = [] if self.role else [{'l': 'PLAY AGAIN', 'f': self.app.tutorial if self.tutorial else self.app.start_battle}]
         m = Menu(f"{SIDES[w]['name']} WINS!", [{'l': 'BATTLE STATS', 'f': self.show_stats},
                                                 {'l': 'VIEW MAP', 'f': lambda: None}] + again +
                  [{'l': 'MAIN MENU', 'f': self.app.main_menu}],
             sub=f"{SIDES[1 - w]['name']} RESIGNED" if self.g.resigned else None, win=w)
-        m.sel = sel
+        m.sel = 2 if back else 0
         return m
 
     def show_stats(self):
         def back():
             self.app.scene = self
-            self.menu = self.over_menu(sel=2)          # back on the victory menu, on PLAY AGAIN (or MAIN MENU)
+            self.menu = self.over_menu(back=True)
         self.app.scene = Stats(self.app, self.g, back)
 
     def resign(self, p):
@@ -882,12 +883,9 @@ class Play:
             if not self.ended:
                 return
             if k in 'udlr':                # VIEW MAP: the final board, every unit showing, to wander around
-                j = self.node_toward(k)
-                if j is not None:
-                    self.cur = j
-                    sound.play('map_cursor')
+                self.move_cursor(k)
             elif k in 'eb':
-                self.menu = self.over_menu(sel=2)
+                self.menu = self.over_menu(back=True)
                 sound.play('back')
             return
         busy = self.script is not None or self.bot()
@@ -903,10 +901,7 @@ class Play:
             sound.play('select' if k == 'e' else 'back')
             return
         if k in 'udlr':
-            j = self.node_toward(k)
-            if j is not None:
-                self.cur = j
-                sound.play('map_cursor')
+            self.move_cursor(k)
             return
         if k == 'b':
             if self.mode != 'cursor':
@@ -974,6 +969,13 @@ class Play:
                 sound.play('select')           # which one to hit (even if there is only one), ESC goes back
             else:
                 sound.play('error')
+
+    def move_cursor(self, d):
+        """An arrow key: the cursor jumps to the next outpost that way, if there is one."""
+        j = self.node_toward(d)
+        if j is not None:
+            self.cur = j
+            sound.play('map_cursor')
 
     def node_toward(self, d):
         """The outpost the cursor should jump to when pressing an arrow."""
