@@ -1,9 +1,11 @@
 """Pocket Wars.  Run:  py main.py
 Keys: ARROWS move, ENTER (or Z, SPACE) select, ESC (or X) back, F11 full screen.
 
-The game is a set of screens (title, map choice, setup, options, how to play, battle). Each screen has
-key(k), update(now, dt) and draw(surface, now); the App below switches between them.
+The game is a set of screens (title, map choice, setup, options, manual, battle). Each screen has
+key(k), update(now, dt) and draw(surface, now); the App below switches between them. Menus switch at once; starting a
+battle plays a circle transition: black closes in on the menu, holds a moment, then opens out on the battlefield.
 """
+import math
 import pygame
 
 pygame.mixer.pre_init(44100, -16, 2, 512)
@@ -15,6 +17,7 @@ from pw.gfx import SW, SH                   # noqa: E402
 from pw.data import load_maps               # noqa: E402
 
 WINDOW_SIZE = (640, 480)        # the window's size when the game opens (drag to resize, maximise, or F11 for full screen)
+CLOSE, HOLD, OPEN = .28, .06, .3   # the circle into a battle: seconds closing, staying black, opening
 
 KEYS = {pygame.K_UP: 'u', pygame.K_DOWN: 'd', pygame.K_LEFT: 'l', pygame.K_RIGHT: 'r',
         pygame.K_RETURN: 'e', pygame.K_KP_ENTER: 'e', pygame.K_SPACE: 'e', pygame.K_z: 'e',
@@ -32,11 +35,36 @@ class App:
         self.now = 0
         self.maps = load_maps()
         self.backdrop = Backdrop(self)
-        self.scene = None
+        self.scene, self.change, self.dt = None, None, 0
         self.running = True
         self.title(intro=True)
 
     # ---------- moving between screens ----------
+    def circle_to(self, new):
+        """Switch to a screen with the circle transition (used when a battle starts). The old screen stays, frozen,
+        while the circle closes on it; the new one starts once it opens; keys wait until it has opened."""
+        self.change = {'old': self.scene, 'start': self.now}
+        self.scene = new
+
+    def draw_change(self):
+        """Draw the screen during the circle transition; False once it's over."""
+        t = self.now - self.change['start']
+        if t >= CLOSE + HOLD + OPEN:
+            self.change = None
+            return False
+        if t < CLOSE:
+            self.change['old'].draw(self.screen, self.now)
+            k = 1 - t / CLOSE
+            iris(self.screen, k * k)                            # eases in: slow at first, then snaps shut
+        elif t < CLOSE + HOLD:
+            self.screen.fill((0, 0, 0))
+        else:
+            self.scene.update(self.now, self.dt)
+            self.scene.draw(self.screen, self.now)
+            k = (t - CLOSE - HOLD) / OPEN
+            iris(self.screen, 1 - (1 - k) ** 2)                 # eases out: opens fast, settles
+        return True
+
     def title(self, intro=False):
         from pw.title import Title
         self.scene = Title(self, intro)
@@ -58,6 +86,12 @@ class App:
         from pw.menus import Options
         self.scene = Options(self)
 
+    def tutorial(self):
+        """Boot Camp with the Green Commander teaching (see pw/tutorial.py): no setup, it jumps right in."""
+        from pw.play import Play
+        from pw.tutorial import load_map, SETTINGS
+        self.circle_to(Play(self, load_map(), dict(SETTINGS, anim=S['anim'])))
+
     def how_to_play(self):
         from pw.howto import HowTo
         self.scene = HowTo(self)
@@ -78,7 +112,7 @@ class App:
 
     def start_battle(self):
         from pw.play import Play
-        self.scene = Play(self, self.chosen_map(), dict(S))
+        self.circle_to(Play(self, self.chosen_map(), dict(S)))
 
     def play_again(self):
         self.start_battle()
@@ -110,7 +144,7 @@ class App:
     def loop(self):
         clock = pygame.time.Clock()
         while self.running:
-            dt = clock.tick(60) / 1000
+            self.dt = dt = clock.tick(60) / 1000
             self.now = pygame.time.get_ticks() / 1000
             for e in pygame.event.get():
                 if e.type in (pygame.QUIT, pygame.WINDOWCLOSE):
@@ -120,11 +154,23 @@ class App:
                         S['fullscreen'] = not S['fullscreen']
                         self.apply_fullscreen()
                         settings.save()
-                    elif e.key in KEYS:
+                    elif e.key in KEYS and not self.change:
                         self.scene.key(KEYS[e.key])
-            self.scene.update(self.now, dt)
-            self.scene.draw(self.screen, self.now)
+            if not (self.change and self.draw_change()):
+                self.scene.update(self.now, dt)
+                self.scene.draw(self.screen, self.now)
             self.show()
+
+
+def iris(surf, k):
+    """Black everywhere except a circle in the middle; k = how open it is (0 = all black, 1 = the whole screen)."""
+    if k >= 1:
+        return
+    cover = pygame.Surface((SW, SH))
+    cover.set_colorkey((255, 0, 255))
+    if k > 0:
+        pygame.draw.circle(cover, (255, 0, 255), (SW // 2, SH // 2), round(k * math.hypot(SW, SH) / 2))
+    surf.blit(cover, (0, 0))
 
 
 if __name__ == '__main__':

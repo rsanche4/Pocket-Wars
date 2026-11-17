@@ -121,7 +121,7 @@ class Field:
                 ellipse(surf, x + 6, y - 3, 6, 4, pygame.Color('#f4f5f7'))
                 text(surf, '?', x - 2, y - 9, pygame.Color('#7d848c'))
             if i == cursor and cursor_style == 'normal':
-                self.draw_cursor(surf, x, y, blink)
+                self.draw_cursor(surf, x, y, now)
         if self.march:
             self.draw_march(surf, cam, now)
         self.drops = [d for d in self.drops if not d.gone(now)]
@@ -186,13 +186,11 @@ class Field:
             ellipse(surf, hx + w / 2, y + 2, 7, 2, pygame.Color(0, 0, 0, 77))
             one(air, hx, y - 10 - h + bob)
 
-    def draw_cursor(self, surf, x, y, blink):
-        p = 1 if blink else 0
-        x0, x1, y0, y1 = x - 17 - p, x + 16 + p, y - 25 - p, y + 9 + p
-        for cx, cy, dx, dy in ((x0, y0, 1, 1), (x1, y0, -1, 1), (x0, y1, 1, -1), (x1, y1, -1, -1)):
-            rect(surf, min(cx, cx + dx * 4), cy, 5, 1, C['white'])
-            rect(surf, cx, min(cy, cy + dy * 4), 1, 5, C['white'])
-            rect(surf, min(cx, cx + dx * 4), cy + dy, 5, 1, C['ink'])
+    def draw_cursor(self, surf, x, y, now):
+        """The cursor around the outpost you're on: ui/cursor.png, centred like the target cursor (it pulses through
+        its frames)."""
+        f = frame(image('ui/cursor.png'), int(now / .26))
+        blit(surf, f, x - f.get_width() // 2, y - 8 - f.get_height() // 2)
 
     def draw_march(self, surf, cam, now):
         m = self.march

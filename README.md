@@ -20,7 +20,7 @@ What the Hard CPU has learned about you is kept in `learned.json` (Options → H
 | Folder | What's in it | Change it? |
 |---|---|---|
 | `assets/` | every picture and sound the game uses | yes: replace any file with your own (same name) |
-| `data/` | unit stats (`units.json`), CPU settings (`ai.json`), colours and battle-scene timing (`style.json`), font layout (`font.json`), How to Play and editor guide text (`howto.json`, `editor_help.json`) | yes |
+| `data/` | unit stats (`units.json`), CPU settings (`ai.json`), colours and battle-scene timing (`style.json`), font layout (`font.json`), the Manual and editor guide text (`howto.json`, `editor_help.json`), the tutorial's dialogue (`tutorial.json`) | yes |
 | `maps/` | every map, one `.json` each: the built-in ones and the ones you save from the map editor (which can open and edit any of them). Share a map by sending its file; drop a friend's file in here to play it | yes: add or edit maps |
 | `data/default-maps/` | untouched copies of the built-in maps, used by RESET TO DEFAULT (and to bring back deleted ones) | only if you want to change what "default" means |
 | `pw/` | the Python code | |
@@ -40,10 +40,11 @@ What the Hard CPU has learned about you is kept in `learned.json` (Options → H
 | `cutin.py` | the battle scene when one unit attacks another |
 | `menu.py` | the pop-up menu box |
 | `play.py` | the battle screen: keys, menus, CPU turns, animations |
+| `tutorial.py` | the TUTORIAL: its fixed path of lessons (only the move being taught is allowed), when each talk plays (words in `data/tutorial.json`), the talk box, and Tan's scripted turns until the hand-off |
 | `stats.py` | BATTLE STATS after a battle: a report card and turn-by-turn charts (numbers kept by `rules.py`) |
 | `title.py` | the title screen, its intro, the live battle behind it and the commanders |
 | `menus.py` | choose a battlefield, battle setup, options |
-| `howto.py` | How to Play (and the editor's guide), with their pictures |
+| `howto.py` | the MANUAL (How to Play) and the editor's guide, with their pictures |
 | `editor.py` | the map editor, the list of maps, and the GENERATE MAP screen |
 | `mapgen.py` | the map generator: builds a fair, mirrored map from a few settings |
 | `demo.py` | make-believe battles for the title and How to Play |
@@ -69,6 +70,8 @@ A few extras are optional:
 
 The battle screen's turn feedback is in `assets/ui/` too (`py tools/make_ui.py` made the originals; running it
 again overwrites them, so pass names to remake only some, e.g. `py tools/make_ui.py arrow_head`):
+- `cursor.png`: the white corners around the outpost you're on, centred on it like the target below. A strip of
+  square frames it flips through to pulse (the original has 2: tight, then 1 pixel wider).
 - `target.png`: the red target cursor while you choose what to attack, centred on the enemy outpost. A strip of
   square frames it flips through to pulse (the original has 2). `target_off.png`: the same over something you
   can't attack.
@@ -101,7 +104,8 @@ outpost above. `py tools/make_ui.py blocked_grass` (or `_desert`, `_beach`, `_sn
 Diagonal roads use the theme's `road_diagonal.png` (`assets/terrain/<theme>/road_diagonal.png`, 88x80): one diagonal
 road going down-right from one outpost to the next, starting 10 pixels in from the top-left corner and ending 10 pixels
 in from the bottom-right corner (its ends hide under the outposts). The game mirrors it for roads going down-left and
-stretches it a little on maps drawn bigger or smaller. The originals are just `road.png` turned at the angle; paint over
+pastes it pixel for pixel, never stretched: on maps drawn a little bigger or smaller its ends reach a few pixels less or
+further, so paint the road on out into the 10-pixel margin. The originals are just `road.png` turned at the angle; paint over
 them for a cleaner diagonal (`py tools/make_ui.py road_diagonal_grass` remakes one from the current `road.png`).
 
 The phase colours (rings, the top-bar tag and the big splash) are in `data/style.json`: `phase_gather` gold,

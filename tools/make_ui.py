@@ -2,6 +2,9 @@
 (it overwrites the files, so don't run it after replacing them with your own art - or pass names to make just those:
 py tools/make_ui.py target arrow_head)
 
+  cursor.png            the white corners around the outpost you're on (the battlefield cursor). A strip of square
+                        frames (here 2: tight, then wide) that the game flips between to make it pulse; drawn centred
+                        8 pixels above the middle of the outpost, like the target below.
   target.png            the red target cursor while choosing what to attack. A strip of square frames (here 2) that
                         the game flips between to make it pulse; drawn centred on the enemy outpost.
   target_off.png        the same cursor over something you can't attack (also a strip of square frames, here 1).
@@ -28,9 +31,10 @@ And in each map theme's folder, assets/terrain/<theme>/:
   road_diagonal.png     one diagonal road, going DOWN-RIGHT from one outpost to the next (the game mirrors it for
                         roads going down-left). 88x80: the road starts 10 pixels in from the top-left corner (the
                         centre of the upper outpost) and ends 10 pixels in from the bottom-right corner (the centre of
-                        the lower one); its ends are hidden under the outposts. Maps drawn a little bigger or smaller
-                        stretch it to fit. This recipe draws the theme's road.png turned at the angle, as the game used
-                        to; paint over it for a cleaner diagonal.
+                        the lower one); its ends are hidden under the outposts. It is pasted pixel for pixel (never
+                        stretched): on maps drawn a little bigger or smaller the ends reach a few pixels less or
+                        further, so paint the road on out into the margin. This recipe draws the theme's road.png
+                        turned at the angle, as the game used to; paint over it for a cleaner diagonal.
 """
 import math
 import os
@@ -66,6 +70,19 @@ def target_frame(s, ox, col, r):
         b = (x + dx * (r + 5), y + dy * (r + 5))
         pygame.draw.line(s, INK, a, b, 4)
         pygame.draw.line(s, col, a, b, 2)
+
+
+def cursor():
+    """2 square frames of 38x38: white corner brackets with a dark line under each, the second 1 pixel wider all round
+    (the same picture the game used to draw itself)."""
+    s = surface(76, 38)
+    for f in range(2):
+        x0, x1, y0, y1 = f * 38 + 2 - f, f * 38 + 35 + f, 2 - f, 36 + f
+        for cx, cy, dx, dy in ((x0, y0, 1, 1), (x1, y0, -1, 1), (x0, y1, 1, -1), (x1, y1, -1, -1)):
+            s.fill(C['white'], (min(cx, cx + dx * 4), cy, 5, 1))
+            s.fill(C['white'], (cx, min(cy, cy + dy * 4), 1, 5))
+            s.fill(C['ink'], (min(cx, cx + dx * 4), cy + dy, 5, 1))
+    return s
 
 
 def target():
@@ -255,7 +272,7 @@ def road_diagonal(theme):
     return s
 
 
-RECIPES = {'target': target, 'target_off': target_off, 'dust': dust,
+RECIPES = {'cursor': cursor, 'target': target, 'target_off': target_off, 'dust': dust,
            'arrow_body': arrow_body, 'arrow_head': arrow_head, 'arrow_head_diagonal': arrow_head_diagonal,
            'arrow_start': arrow_start, 'sky': sky,
            'cloud1': lambda: cloud([(10, 14, 7), (20, 9, 9), (31, 11, 8), (40, 15, 6)], 48, 22),

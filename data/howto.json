@@ -100,7 +100,7 @@
    "title": "CONTROLS",
    "picture": "controls",
    "text": [
-    "ESC backs out of menus and choices. On the map it opens the menu: skip march, end turn, volume, resign, quit.",
+    "ESC backs out of menus and choices. On the map it opens the menu: skip march, end turn, volume, full screen, resign, quit.",
     "ESC also pauses the game during the CPU turn (you can change the volume there too)."
    ]
   },

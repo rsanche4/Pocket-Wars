@@ -1,7 +1,7 @@
 {
  "_about": "Colours used by the screens, the two sides, and the four map themes.",
  "title_anim_fps": 8,
- "battle_scene_seconds": {"before": 1, "attack": 2, "after": 1},
+ "battle_scene_seconds": {"before": 1, "attack": 3, "after": 0.7},
  "colors": {
   "ink": "#101410", "olive": "#2f5a22", "olive_dark": "#1f3d1a", "paper": "#f6e6c0", "paper_dark": "#e8c890",
   "highlight": "#ffe070", "red": "#e0482c", "white": "#ffffff", "grey": "#a8aa9c", "dim": "#4a4d44",

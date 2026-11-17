@@ -1,0 +1,100 @@
+{
+ "_about": "The TUTORIAL's dialogue (played on Boot Camp). Edit the words freely: who = green or tan, mood = focus, happy, hurt, angry or sad, look = enemy_hq or our_hq moves the cursor there while the line shows. WHEN each scene plays, and their order, is set in pw/tutorial.py (the 'when' notes here are just reminders). Keep each line under about 150 letters so it fits in the box (4 lines).",
+ "scenes": {
+  "briefing": {"when": "The battle opens, before anything else.", "lines": [
+   {"who": "green", "mood": "happy", "say": "Welcome to Pocket Wars, soldier! I'm the Green Commander."},
+   {"who": "green", "mood": "focus", "say": "We have one simple objective: destroy the enemy HQ."},
+   {"who": "green", "mood": "focus", "say": "See that castle-looking building on the right side of the map? That's it.", "look": "enemy_hq"},
+   {"who": "green", "mood": "focus", "say": "Our own HQ is on the left, with a half-track guarding it.", "look": "our_hq"},
+   {"who": "green", "mood": "focus", "say": "If it falls, we lose the game. Protect it at all costs!"}
+  ]},
+  "reinforcements": {"when": "Turn 1, the moment you can place.", "lines": [
+   {"who": "green", "mood": "focus", "say": "Every turn starts with reinforcements: one free soldier, every single turn."},
+   {"who": "green", "mood": "focus", "say": "You can see how many you have left to place at the top of the screen."},
+   {"who": "green", "mood": "focus", "say": "Drop them on our outposts, or on an empty one right next to ours along a road."},
+   {"who": "green", "mood": "happy", "say": "Go on, drop one in by the bridge. They love the parachute."}
+  ]},
+  "deploy_only": {"when": "After the soldier lands.", "lines": [
+   {"who": "green", "mood": "focus", "say": "Our first turn is deploy only. No marching, no shooting."},
+   {"who": "green", "mood": "focus", "say": "When you're ready, pick DONE: END TURN."}
+  ]},
+  "over_to_tan": {"when": "As Tan's first turn starts.", "lines": [
+   {"who": "green", "mood": "focus", "say": "That's a turn. Now the other side gets to make their move."},
+   {"who": "green", "mood": "hurt", "say": "I've got a bad feeling about this."}
+  ]},
+  "barracks": {"when": "Your second turn, reinforcements.", "lines": [
+   {"who": "green", "mood": "focus", "say": "Time for your next lesson, soldier: BARRACKS. They're the outposts with the +1 badge."},
+   {"who": "green", "mood": "focus", "say": "Keep soldiers on a barracks outpost, and it sends you an extra soldier at the start of every turn."},
+   {"who": "green", "mood": "happy", "say": "There are four on this map. Hold them all, and that's four extra soldiers plus our usual free one!"},
+   {"who": "green", "mood": "happy", "say": "Go on, drop your soldier on the barracks right above the bridge!"}
+  ]},
+  "vehicles": {"when": "Your second turn, once your soldier has landed.", "lines": [
+   {"who": "green", "mood": "focus", "say": "After reinforcements comes the next part: VEHICLE PURCHASES."},
+   {"who": "green", "mood": "happy", "say": "No, not your car's extended warranty. Vehicles of WAR, to roll right over the enemy!"},
+   {"who": "green", "mood": "focus", "say": "Soldiers on the same outpost can trade in for ONE vehicle a turn. They hop in, and it appears right there."},
+   {"who": "green", "mood": "focus", "say": "A half-track costs 2 soldiers. A helicopter costs 3. A tank costs 4."},
+   {"who": "green", "mood": "focus", "say": "Feel free to buy one if you've got enough soldiers. Otherwise, pick NEXT: MARCH."}
+  ]},
+  "march": {"when": "Your first march.", "lines": [
+   {"who": "green", "mood": "focus", "say": "NOW comes the next phase, soldier: MARCH!"},
+   {"who": "green", "mood": "focus", "say": "Pick ONE group and move it once. Only one per turn, so make it count!"},
+   {"who": "green", "mood": "focus", "say": "Every unit gets around differently. Boots and treads need roads..."},
+   {"who": "green", "mood": "focus", "say": "...but helicopters fly, so only they can cross the river. For now, let's send our half-track across the bridge!"}
+  ]},
+  "march_done": {"when": "The half-track has crossed the bridge (and found Tan).", "lines": [
+   {"who": "green", "mood": "focus", "say": "Now... where is Tan hiding?"}
+  ]},
+  "first_contact": {"when": "Straight after march_done.", "lines": [
+   {"who": "tan", "mood": "happy", "say": "KNOCK KNOCK! IT'S THE TAN ARMY, CALLING ABOUT YOUR CAR'S EXTENDED WARRANTY!"},
+   {"who": "green", "mood": "angry", "say": "You're not funny, Tan."},
+   {"who": "tan", "mood": "happy", "say": "YOU'RE RIGHT. I'M HILARIOUS. NOW RESIGN SO I CAN WIN."},
+   {"who": "green", "mood": "focus", "say": "She means the RESIGN option. If a battle is truly lost, you can give up from the ESC menu."},
+   {"who": "green", "mood": "angry", "say": "But not this one, Tan. Nobody's giving up yet."},
+   {"who": "tan", "mood": "happy", "say": "BWAHAHAHAHA!"},
+   {"who": "green", "mood": "focus", "say": "...What now?"},
+   {"who": "tan", "mood": "happy", "say": "Nothing. I just wanted to do an evil laugh."},
+   {"who": "green", "mood": "sad", "say": "...She hasn't changed a bit."},
+   {"who": "green", "mood": "focus", "say": "Let's win this, soldier! Time for the next phase: ATTACK."}
+  ]},
+  "attack": {"when": "Straight after first_contact.", "lines": [
+   {"who": "green", "mood": "focus", "say": "The last phase of every turn is ATTACK! First, pick where to attack from: the orange rings."},
+   {"who": "green", "mood": "focus", "say": "Then pick a target, and the cursor turns red. Each unit can fire once a turn."},
+   {"who": "green", "mood": "focus", "say": "Careful: the enemy fires back at the same time, and damage is a little random."},
+   {"who": "green", "mood": "focus", "say": "So check DEAL and TAKE before you hit FIRE."},
+   {"who": "tan", "mood": "happy", "say": "Psst. He forgot to mention I shoot back."},
+   {"who": "green", "mood": "angry", "say": "I LITERALLY just said that."}
+  ]},
+  "cleared": {"when": "The first time you wipe out an outpost.", "lines": [
+   {"who": "green", "mood": "happy", "say": "Cleared! You can move in for free, or STAY PUT and hold your ground."},
+   {"who": "tan", "mood": "sad", "say": "That was my favorite outpost."},
+   {"who": "green", "mood": "focus", "say": "You say that about every outpost."}
+  ]},
+  "who_beats_who": {"when": "Once you've chosen to move in or stay put.", "lines": [
+   {"who": "green", "mood": "focus", "say": "Now, it's important to know which vehicle beats which."},
+   {"who": "green", "mood": "focus", "say": "Think rock, paper, scissors... with engines."},
+   {"who": "green", "mood": "focus", "say": "Tanks crush half-tracks. Helicopters beat tanks, because tanks can't even shoot up."},
+   {"who": "green", "mood": "focus", "say": "And half-tracks carry anti-air guns. Helicopters hate them."},
+   {"who": "tan", "mood": "happy", "say": "And Tan beats Green. Easy peasy to remember."},
+   {"who": "green", "mood": "angry", "say": "Shut up, Tan."},
+   {"who": "green", "mood": "focus", "say": "That's all for this turn, soldier. Press ESC and pick END TURN."}
+  ]},
+  "hq": {"when": "The start of your next turn (Tan does nothing in between).", "lines": [
+   {"who": "green", "mood": "focus", "say": "That's her HQ. It has 100 hit points, and it shoots back.", "look": "enemy_hq"},
+   {"who": "green", "mood": "focus", "say": "Bring it down to zero, and we win!"},
+   {"who": "tan", "mood": "sad", "say": "WHY DO YOU WANT TO DESTROY ME? WHAT DID I EVER DO TO YOU?"},
+   {"who": "green", "mood": "focus", "say": "It's JUST a game, Tan. Grow up."},
+   {"who": "tan", "mood": "hurt", "say": "It's not just a game to me, Green. I... I have feelings for you."},
+   {"who": "tan", "mood": "hurt", "say": "I want to marry you!"},
+   {"who": "green", "mood": "angry", "say": "TAN, WHAT THE HECK?! NOT NOW!"},
+   {"who": "tan", "mood": "sad", "say": "But-"},
+   {"who": "green", "mood": "angry", "say": "I SAID NOT NOW. WE'LL TALK ABOUT IT BEHIND THE SCENES."},
+   {"who": "green", "mood": "hurt", "say": "...Please forgive me, soldier. Now, where were we? Oh, yes. Back to it!"}
+  ]},
+  "hand_off": {"when": "Straight after hq. After this there is no more dialogue and Tan plays as the Normal CPU.", "lines": [
+   {"who": "green", "mood": "happy", "say": "That's everything I've got, soldier. The rest is up to you."},
+   {"who": "green", "mood": "focus", "say": "Real battles let you switch the fog off, or go full BLACKOUT. You can even build your own battlefields in the MAP EDITOR."},
+   {"who": "tan", "mood": "happy", "say": "Or grab a friend and fight each other... or a special someone, if you're into that sort of thing. Right, Green?"},
+   {"who": "green", "mood": "hurt", "say": "Oh my lord. Anyway, soldier... GOOD LUCK!"}
+  ]}
+ }
+}

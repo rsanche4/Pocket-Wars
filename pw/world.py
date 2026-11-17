@@ -12,8 +12,10 @@ from .data import STEP_X, STEP_Y
 from .gfx import image, has_image, THEMES, C
 
 KINDS = ['bunker', 'town', 'watchtower', 'town', 'bunker', 'watchtower', 'town']
-# road_diagonal.png is drawn for this zoom (k = .4): one diagonal step between outposts is DIAGONAL_STEP pixels, and the
-# picture leaves DIAGONAL_MARGIN pixels around it (the road starts and ends under the outposts' pads). Other zooms stretch it.
+# road_diagonal.png is made for this zoom (k = .4): one diagonal step between outposts is DIAGONAL_STEP pixels, and the
+# picture leaves DIAGONAL_MARGIN pixels around it (the road starts and ends under the outposts' pads). It is pasted as it
+# is at every zoom: the angle between diagonal neighbours never changes, only the distance, so the road always runs
+# through both outposts; on bigger or smaller maps its ends just reach a few pixels less or further (under the pads).
 DIAGONAL_STEP = (round(STEP_X * .4), round(STEP_Y * .4))
 DIAGONAL_MARGIN = 10
 
@@ -64,16 +66,14 @@ def obstacles(m, k):
 
 
 def diagonal_road(m, k, a, b):
-    """The theme's road_diagonal.png for the diagonal road from outpost a to b (mirrored if it goes down-left, stretched
-    to this zoom), and where it goes. None if the theme has no such picture."""
+    """The theme's road_diagonal.png for the diagonal road from outpost a to b (mirrored if it goes down-left), and
+    where it goes: centred between them, pixel for pixel (stretching pixel art makes it ragged). None if the theme has no
+    such picture."""
     if not has_image(f'terrain/{m.theme}/road_diagonal.png'):
         return None
     img = image(f'terrain/{m.theme}/road_diagonal.png')
     if (b.x - a.x) * (b.y - a.y) < 0:
         img = pygame.transform.flip(img, True, False)
-    sx = abs(b.x - a.x) * k / DIAGONAL_STEP[0]
-    sy = abs(b.y - a.y) * k / DIAGONAL_STEP[1]
-    img = pygame.transform.scale(img, (round(img.get_width() * sx), round(img.get_height() * sy)))
     return img, img.get_rect(center=(round((a.x + b.x) / 2 * k), round((a.y + b.y) / 2 * k)))
 
 

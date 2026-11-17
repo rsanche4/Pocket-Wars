@@ -12,6 +12,7 @@ from .data import UNITS, ORDER
 from .rules import Game, can_hit, damage_range, flies
 from .field import Field, March, Drop
 from .cutin import CutIn
+from .tutorial import Tutorial
 from .menu import Menu
 from .gfx import C, SIDES, SW, SH, rect, text, text_width, blit, portrait, unit_image
 from .settings import S, save
@@ -50,14 +51,15 @@ class Landed:
 
 class Play:
     def __init__(self, app, m, settings):
-        """settings: mode ('cpu', 'hot' = two players, 'watch' = CPU vs CPU), cpu ('normal'/'hard'), fog, timer, anim."""
+        """settings: mode ('cpu', 'hot' = two players, 'watch' = CPU vs CPU), cpu ('normal'/'hard'), fog, timer, anim,
+        and tutorial (True: the Green Commander teaches as you play, see tutorial.py)."""
         self.app, self.settings = app, settings
         mode = settings['mode']
         self.bots = [mode == 'watch', mode in ('cpu', 'watch')]
         self.levels = [settings['cpu'], settings['cpu']]
         self.speed = SPEEDS[settings['anim']]
-        self.now = 0
-        self.g = Game(m, settings['fog'])
+        self.now = app.now                  # the battle's own clock starts now, paused until the first update, so
+        self.g = Game(m, settings['fog'])   # nothing ticks away while the screen change is still opening
         self.k = max(.36, min(.44, min((SW - 8) / m.w, (VIEW_H - 6) / m.h)))
         self.field = Field(self.g, self.k)
         self.cur, self.mode, self.menu = self.g.hq[0], 'cursor', None
@@ -73,7 +75,8 @@ class Play:
         self.time_left = 0
         self.ended = False
         self.memory = None
-        self.paused_total, self.paused_at = 0, None   # the battle's clock stops while the PAUSED menu is open
+        self.paused_total, self.paused_at = 0, app.now   # the battle's clock stops while the PAUSED menu is open
+        self.tutorial = Tutorial(self) if settings.get('tutorial') else None
         if mode == 'cpu' and settings['cpu'] == 'hard':      # Hard learns from games against you (learn.py)
             you = self.human_side()
             self.memory = learn.load()
@@ -86,6 +89,20 @@ class Play:
         self.turn_started()
 
     # ------------------------------------------------------------------ helpers
+    @property
+    def menu(self):
+        return self._menu
+
+    @menu.setter
+    def menu(self, m):
+        if m is not None and getattr(self, 'tutorial', None):
+            self.tutorial.lock_menu(m)          # the tutorial greys out the choices it isn't teaching yet
+        self._menu = m
+
+    def allowed(self, kind, i):
+        """The tutorial only lets you do the one thing it's teaching (see Tutorial.step); otherwise anything goes."""
+        return not self.tutorial or self.tutorial.allows(kind, i)
+
     def bot(self, p=None):
         return self.bots[self.g.cur if p is None else p]
 
@@ -130,6 +147,8 @@ class Play:
 
     def turn_banner(self):
         g, p = self.g, self.g.cur
+        if self.tutorial and self.tutorial.quiet_banner():
+            return
         who = f"{SIDES[p]['name']} TURN {g.turn}"
         solo = self.bots[0] != self.bots[1]           # you against the CPU: say whose turn it is in plain words
         if self.bot(p):
@@ -235,7 +254,7 @@ class Play:
         w = self.g.winner
         m = Menu(f"{SIDES[w]['name']} WINS!", [
             {'l': 'BATTLE STATS', 'f': self.show_stats},
-            {'l': 'PLAY AGAIN', 'f': self.app.play_again},
+            {'l': 'PLAY AGAIN', 'f': self.app.tutorial if self.tutorial else self.app.play_again},
             {'l': 'MAIN MENU', 'f': self.app.main_menu}],
             sub=f"{SIDES[1 - w]['name']} RESIGNED" if self.g.resigned else None, win=w)
         m.sel = sel
@@ -262,7 +281,8 @@ class Play:
         return (self.paused_at if self.paused_at is not None else now) - self.paused_total
 
     def update(self, now, dt):
-        if self.menu is not None and self.menu.pauses:
+        talking = self.tutorial and self.tutorial.talk
+        if (self.menu is not None and self.menu.pauses) or talking:
             if self.paused_at is None:
                 self.paused_at = now
             return                                # nothing moves: CPU, marches, battle scenes, the turn timer
@@ -277,6 +297,8 @@ class Play:
                 break
             if hasattr(w, 'done') and not w.done(now):
                 break
+            if self.tutorial and self.tutorial.pending and not hasattr(w, 'done') and not self.field.march:
+                break                         # someone's about to talk: the script waits here (the CPU's next move...)
             script = self.script
             try:
                 y = next(script)
@@ -291,6 +313,8 @@ class Play:
             if not d.heard and d.landed(now):
                 d.heard = True
                 sound.play('place')
+        if self.tutorial:
+            self.tutorial.update(now)
         g = self.g
         if g.phase == 'over' and not self.ended and not self.cutin:
             self.game_over()
@@ -308,7 +332,11 @@ class Play:
 
     def cpu_turn(self):
         yield .5
-        actions, result = ai.turn(self.g, self.levels[self.g.cur]), None
+        if self.tutorial and not self.tutorial.handed_off:
+            actions = self.tutorial.tan_turn()          # the tutorial's Tan, until the hand-off
+        else:
+            actions = ai.turn(self.g, self.levels[self.g.cur])
+        result = None
         while True:
             try:
                 action = actions.send(result)
@@ -381,6 +409,8 @@ class Play:
             self.draw(self.before, self.now + self.paused_total)
         f = g.fight(a, b, x, y)
         self.fight_moods(f)
+        if self.tutorial:
+            self.tutorial.saw_fight(f, b)
         if scene:
             e = next((e for e in g.map.links if {e.a, e.b} == {a, b}), None)   # what lies between them: road, river...
             link = None if e is None else 'bridge' if e.bridge else e.kind
@@ -455,15 +485,15 @@ class Play:
         items = [{'l': 'RESUME', 'f': lambda: None}]
         if not busy:
             items += self.turn_items()
-        items += self.sound_items()
+        items += self.option_items()
         items += [{'l': 'RESIGN', 'f': self.ask_resign},
                   {'l': 'QUIT TO MENU', 'f': lambda: setattr(self, 'menu', pausing(Menu('QUIT THIS BATTLE?', [
                       {'l': 'NO, KEEP PLAYING', 'f': lambda: None}, {'l': 'YES, QUIT', 'f': self.app.main_menu}])))}]
         self.menu = pausing(Menu('PAUSED', items))
 
-    def sound_items(self):
-        """Music and effects volume, and battle-scene speed, changed with LEFT/RIGHT without leaving the battle
-        (saved like the Options screen). Turning a volume up also switches that sound back on."""
+    def option_items(self):
+        """Music and effects volume, battle-scene speed and full screen, changed with LEFT/RIGHT (or ENTER) without
+        leaving the battle, and saved like the Options screen. Turning a volume up also switches that sound back on."""
         def volume(label, key, on):
             def adj(d):
                 S[key] = max(0, min(10, S[key] + d))
@@ -477,8 +507,14 @@ class Play:
             save()
             self.settings['anim'] = S['anim']
             self.speed = SPEEDS[S['anim']]
+
+        def full_screen(d):
+            S['fullscreen'] = not S['fullscreen']
+            save()
+            self.app.apply_fullscreen()
         return [volume('MUSIC VOLUME', 'music_volume', 'music'), volume('EFFECTS VOLUME', 'sfx_volume', 'sound'),
-                {'l': 'BATTLE SCENES', 'val': lambda: f"◀ {S['anim'].upper()} ▶", 'adj': scenes}]
+                {'l': 'BATTLE SCENES', 'val': lambda: f"◀ {S['anim'].upper()} ▶", 'adj': scenes},
+                {'l': 'FULL SCREEN', 'val': lambda: '◀ ON ▶' if S['fullscreen'] else '◀ OFF ▶', 'adj': full_screen}]
 
     def ask_resign(self):
         p = self.human_side()
@@ -539,6 +575,8 @@ class Play:
                 self.menu = self.group_menu(i, counts)
                 return
             self.mode, self.src, self.counts, self.menu = 'pick_dest', i, counts, None
+            if self.tutorial:
+                self.cur = self.tutorial.focus('march_to', self.cur)
 
         items = [self.counter(k, counts, len(groups[k])) for k in keys]
         items += [{'l': 'MOVE ▶', 'f': go}, {'l': 'CANCEL', 'f': lambda: None}]
@@ -621,6 +659,10 @@ class Play:
         if self.cutin:
             if k in 'eb':
                 self.cutin.skipped = True
+            return
+        if self.tutorial and self.tutorial.busy():
+            if self.tutorial.talk and k in 'eb':
+                self.tutorial.key(self.app.now)
             return
         if self.pass_screen:
             if k == 'e':
@@ -707,19 +749,22 @@ class Play:
             group = self.group_from(self.src, self.counts)
             dests = g.destinations(p, self.src, group)
             self.mode = 'cursor'
-            if i in dests:
+            if i in dests and self.allowed('march_to', i):
                 self.run(self.human_march(self.src, dests[i], [u.id for u in group]))
+            elif self.tutorial and not self.tutorial.handed_off:
+                self.mode = 'pick_dest'            # (the lesson waits for the right outpost)
+                sound.play('error')
             else:
                 sound.play('back')
         elif mode == 'pick_target':
-            if i in g.targets(p, self.src):
+            if i in g.targets(p, self.src) and self.allowed('target', i):
                 self.menu = self.fight_menu(self.src, i)
                 sound.play('select')
             else:                              # can't hit that one: stay in target picking (ESC backs out)
                 sound.play('error')
         elif g.phase == 'gather':
             if g.to_place > 0:
-                if g.can_place(p, i):
+                if g.can_place(p, i) and self.allowed('place', i):
                     g.place(i)
                     self.drop(i)
                     self.after_gather()
@@ -728,16 +773,17 @@ class Play:
             else:
                 self.open_buy()
         elif g.phase == 'march':
-            if g.owner(i) == p and g.movable(i):
+            if g.owner(i) == p and g.movable(i) and self.allowed('march_from', i):
                 self.menu = self.group_menu(i)
                 sound.play('select')
             else:
                 sound.play('error')
         elif g.phase == 'attack':
-            targets = g.targets(p, i) if g.turn > 1 and g.owner(i) == p else []
+            targets = g.targets(p, i) if g.turn > 1 and g.owner(i) == p and self.allowed('attack_from', i) else []
             if targets:
                 self.mode, self.src = 'pick_target', i
-                self.cur = targets[0]          # the cursor jumps onto an enemy and becomes a red target; you pick
+                self.cur = next((t for t in targets if self.allowed('target', t)), targets[0])   # the cursor jumps onto
+                # an enemy and becomes a red target; you pick
                 sound.play('select')           # which one to hit (even if there is only one), ESC goes back
             else:
                 sound.play('error')
@@ -769,15 +815,15 @@ class Play:
                 if g.owner(i) == p and g.count(i, 'soldier') >= UNITS[self.buy_type]['cost']:
                     h.add(i)
             elif self.mode == 'pick_target':
-                if i in g.targets(p, self.src):
+                if i in g.targets(p, self.src) and self.allowed('target', i):
                     h.add(i)
             elif self.mode == 'cursor':
-                if (g.phase == 'gather' and g.to_place > 0 and g.can_place(p, i)) or \
-                   (g.phase == 'march' and g.owner(i) == p and g.movable(i)) or \
-                   (g.phase == 'attack' and g.turn > 1 and g.owner(i) == p and g.targets(p, i)):
+                if (g.phase == 'gather' and g.to_place > 0 and g.can_place(p, i) and self.allowed('place', i)) or \
+                   (g.phase == 'march' and g.owner(i) == p and g.movable(i) and self.allowed('march_from', i)) or \
+                   (g.phase == 'attack' and g.turn > 1 and g.owner(i) == p and self.allowed('attack_from', i) and g.targets(p, i)):
                     h.add(i)
         if self.mode == 'pick_dest':
-            h |= set(g.destinations(p, self.src, self.group_from(self.src, self.counts)))
+            h |= {j for j in g.destinations(p, self.src, self.group_from(self.src, self.counts)) if self.allowed('march_to', j)}
         if self.mode == 'peek' and not self.menu:
             h |= set(self.peek[:2])
         if self.menu and self.menu.pair:
@@ -821,7 +867,7 @@ class Play:
         return min(spots, key=cover)                         # ties go to the first: bottom middle
 
     def draw(self, surf, now):
-        now = self.battle_time(now)                  # animations freeze while paused
+        real, now = now, self.battle_time(now)       # animations freeze while paused
         if self.cutin and self.before:               # a battle scene over the screen as it was before the shots
             surf.blit(self.before, (0, 0))
             self.cutin.draw(surf, now)
@@ -835,14 +881,14 @@ class Play:
         show_cursor = self.cur if not self.script and not self.bot() else None
         style = 'normal'
         if self.mode == 'pick_target' and mine:
-            style = 'target' if self.cur in g.targets(g.cur, self.src) else 'no_target'
+            style = 'target' if self.cur in g.targets(g.cur, self.src) and self.allowed('target', self.cur) else 'no_target'
         self.field.draw(surf, cam, now, vis, g.blackout, self.highlights(), show_cursor, self.phase_color(), style)
         if mine and self.mode == 'pick_dest':                  # the arrow from the marching group to the cursor
             dests = g.destinations(g.cur, self.src, self.group_from(self.src, self.counts))
-            if self.cur in dests:
+            if self.cur in dests and self.allowed('march_to', self.cur):
                 self.field.draw_route(surf, cam, dests[self.cur])
         if mine and self.mode == 'cursor' and not self.menu and g.phase == 'gather' and g.to_place > 0 \
-                and g.can_place(g.cur, self.cur):                 # the next reinforcement, waiting to drop here
+                and g.can_place(g.cur, self.cur) and self.allowed('place', self.cur):    # the next reinforcement
             self.field.draw_ghost(surf, cam, self.cur, g.cur, now)
         if self.bot() and not all(self.bots) and g.phase != 'over':
             self.draw_cpu_playing(surf, now)
@@ -866,6 +912,8 @@ class Play:
             self.draw_pass(surf, now)
         if self.cutin:
             self.cutin.draw(surf, now)
+        if self.tutorial:
+            self.tutorial.draw(surf, real)            # typed out in real time (the battle is frozen while they talk)
 
     def draw_banner(self, surf, now):
         """The phase splash: a band in the playing side's colours opens, big letters (in the phase's colour) slide in
@@ -991,6 +1039,9 @@ class Play:
             return f"{SIDES[p]['name']} IS ON THE MOVE..."
         if self.script:
             return ''
+        lesson = self.tutorial.hint(mode) if self.tutorial else None
+        if lesson:
+            return lesson
         if mode == 'peek':
             return 'LOOKING AROUND · ENTER/ESC: BACK TO MOVE IN'
         if mode == 'pick_buy':

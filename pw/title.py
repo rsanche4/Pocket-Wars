@@ -102,10 +102,11 @@ def faded(surf, alpha, draw):
 class Title:
     def __init__(self, app, intro=False):
         self.app = app
-        self.items = [{'l': 'PLAYER VS CPU', 'f': lambda: app.choose_map('cpu')},
+        self.items = [{'l': 'TUTORIAL', 'f': app.tutorial},
+                      {'l': 'PLAYER VS CPU', 'f': lambda: app.choose_map('cpu')},
                       {'l': 'PLAYER VS PLAYER', 'f': lambda: app.choose_map('hot')},
+                      {'l': 'MANUAL', 'f': app.how_to_play},
                       {'l': 'MAP EDITOR', 'f': app.map_editor},
-                      {'l': 'HOW TO PLAY', 'f': app.how_to_play},
                       {'l': 'OPTIONS', 'f': app.options}]
         self.sel = 0
         self.intro = None          # set to the start time on the first frame when playing the intro

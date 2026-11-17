@@ -1,10 +1,10 @@
 {
- "games": 12,
- "you_won": 4,
+ "games": 14,
+ "you_won": 6,
  "styles": {
   "balanced": {
    "won": 0,
-   "lost": 0
+   "lost": 1
   },
   "aggressive": {
    "won": 2,
@@ -12,7 +12,7 @@
   },
   "defensive": {
    "won": 1,
-   "lost": 0
+   "lost": 1
   },
   "air power": {
    "won": 5,
@@ -28,7 +28,7 @@
   }
  },
  "you": {
-  "turns": 118,
+  "turns": 120,
   "built": {
    "halftrack": 21,
    "tank": 16,
