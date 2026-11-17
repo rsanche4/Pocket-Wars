@@ -93,7 +93,7 @@
   "hand_off": {"when": "Your turn after the practice turn (you play the turn after hq freely, Tan does nothing). After this there is no more dialogue and Tan plays as the Normal CPU.", "lines": [
    {"who": "green", "mood": "happy", "say": "That's everything I've got, soldier. The rest is up to you."},
    {"who": "green", "mood": "focus", "say": "If you ever have any questions, the MANUAL on the title screen explains everything in detail."},
-   {"who": "green", "mood": "focus", "say": "Real battles let you switch the fog off, or go full BLACKOUT. You can even build your own battlefields in the MAP EDITOR."},
+   {"who": "green", "mood": "focus", "say": "One last thing! You can also build your own battlefields in the MAP EDITOR."},
    {"who": "tan", "mood": "happy", "say": "Or grab a friend and fight each other... or a special someone, if you're into that sort of thing. Right, Green?"},
    {"who": "green", "mood": "hurt", "say": "Oh my lord. Anyway, soldier... GOOD LUCK!"}
   ]}
