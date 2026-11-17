@@ -12,6 +12,7 @@ Only Python's own modules are used.
 import hashlib
 import ipaddress
 import json
+import os
 import queue
 import re
 import socket
@@ -31,7 +32,7 @@ MAX_LINE = 2_000_000                 # a message bigger than this is nonsense: h
 
 def game_id():
     """Both games must have the same rules and unit stats: this fingerprint is compared when a guest joins."""
-    with open(f'{ROOT}/data/units.json', 'rb') as f:
+    with open(os.path.join(ROOT, 'data', 'units.json'), 'rb') as f:
         return f'{PROTOCOL}-{hashlib.sha1(f.read()).hexdigest()[:10]}'
 
 

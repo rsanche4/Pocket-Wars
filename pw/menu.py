@@ -8,7 +8,7 @@ from .gfx import C, SW, SH, rect, box, text, blit, unit_image
 
 
 class Pages:
-    """A screen of pages (How to Play, Battle Stats): LEFT/RIGHT flip, ENTER next (or done), ESC leaves.
+    """A screen of pages (the Manual, Battle Stats): LEFT/RIGHT flip, ENTER next (or done), ESC leaves.
     Subclasses set self.pages, self.page and self.on_exit, and draw a page's content after frame()."""
     def key(self, k):
         before = self.page

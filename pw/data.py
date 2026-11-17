@@ -154,7 +154,8 @@ def map_info(m):
         ('BARRACKS', clamp(barracks / n * 20), str(barracks)),
         ('WATER', max(wet, 1 if rivers else 0), ['NONE', 'A LITTLE', 'SOME', 'PLENTY', 'LOTS', 'LOTS'][max(wet, 1 if rivers else 0)]),
         ('ROADS', clamp((open_ - .9) * 6), 'TWISTY' if open_ < 1.25 else 'OPEN' if open_ < 1.6 else 'WIDE OPEN'),
-        ('HQ GAP', clamp(steps - 2) if steps < 99 else 0, 'NO ROAD' if steps == 99 else 'NEAR' if steps <= 4 else 'MIDDLE' if steps <= 6 else 'FAR'),
+        ('HQ GAP', clamp(steps - 2) if steps < 99 else 0,
+         'NO ROAD' if steps == 99 else 'NEAR' if steps <= 4 else 'MIDDLE' if steps <= 6 else 'FAR'),
     ]
     tags = []
     if steps <= 4:

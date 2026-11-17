@@ -1,0 +1,101 @@
+{
+ "_about": "Los diálogos del TUTORIAL en español. Las escenas son las mismas que en data/tutorial.json (cuándo pasa cada una lo decide pw/tutorial.py). who = green o tan, mood = focus, happy, hurt, angry o sad, look = enemy_hq u our_hq. Cada línea, de menos de unas 150 letras para que entre en el cuadro (4 renglones).",
+ "scenes": {
+  "briefing": {"lines": [
+   {"who": "green", "mood": "happy", "say": "¡Bienvenido a Pocket Wars, soldado! Soy el Comandante Verde."},
+   {"who": "green", "mood": "focus", "say": "Tenemos un objetivo muy simple: destruir la BASE enemiga."},
+   {"who": "green", "mood": "focus", "say": "¿Ves ese edificio con forma de castillo a la derecha del mapa? Esa es.", "look": "enemy_hq"},
+   {"who": "green", "mood": "focus", "say": "Nuestra base está a la izquierda, con una semioruga que la cuida.", "look": "our_hq"},
+   {"who": "green", "mood": "focus", "say": "Si cae, perdemos la partida. ¡Protégela a toda costa!"}
+  ]},
+  "reinforcements": {"lines": [
+   {"who": "green", "mood": "focus", "say": "Cada turno empieza con refuerzos: un soldado gratis en cada turno."},
+   {"who": "green", "mood": "focus", "say": "Arriba en la pantalla ves cuántos te quedan por colocar."},
+   {"who": "green", "mood": "focus", "say": "Colócalos en nuestros puestos, o en uno vacío justo al lado de los nuestros por un camino."},
+   {"who": "green", "mood": "happy", "say": "Dale, deja caer uno junto al puente. Les encanta el paracaídas."}
+  ]},
+  "deploy_only": {"lines": [
+   {"who": "green", "mood": "focus", "say": "Nuestro primer turno es solo de despliegue. Nada de marchar, nada de disparar."},
+   {"who": "green", "mood": "focus", "say": "Cuando estés listo, elige LISTO: FIN DE TURNO."}
+  ]},
+  "over_to_tan": {"lines": [
+   {"who": "green", "mood": "focus", "say": "Eso es un turno. Ahora le toca mover al otro lado."},
+   {"who": "green", "mood": "hurt", "say": "Tengo un mal presentimiento sobre esto."}
+  ]},
+  "barracks": {"lines": [
+   {"who": "green", "mood": "focus", "say": "Hora de tu próxima lección, soldado: los CUARTELES. Son los puestos con la insignia +1."},
+   {"who": "green", "mood": "focus", "say": "Mantén soldados en un cuartel y te manda un soldado extra al empezar cada turno."},
+   {"who": "green", "mood": "happy", "say": "Hay cuatro en este mapa. Si los tenemos todos, ¡son cuatro soldados extra más el gratis de siempre!"},
+   {"who": "green", "mood": "happy", "say": "¡Dale, deja caer tu soldado en el cuartel justo arriba del puente!"}
+  ]},
+  "vehicles": {"lines": [
+   {"who": "green", "mood": "focus", "say": "Después de los refuerzos viene la siguiente parte: COMPRAR VEHÍCULOS."},
+   {"who": "green", "mood": "happy", "say": "No, no la garantía extendida de tu auto. ¡Vehículos de GUERRA, para pasarle por encima al enemigo!"},
+   {"who": "green", "mood": "focus", "say": "Los soldados de un mismo puesto pueden cambiarse por UN vehículo por turno. Se suben, y aparece ahí mismo."},
+   {"who": "green", "mood": "focus", "say": "Una semioruga cuesta 2 soldados. Un helicóptero, 3. Un tanque, 4."},
+   {"who": "green", "mood": "focus", "say": "Si tienes suficientes soldados, compra uno. Si no, elige SIGUE: MARCHA."}
+  ]},
+  "march": {"lines": [
+   {"who": "green", "mood": "focus", "say": "¡AHORA viene la siguiente fase, soldado: la MARCHA!"},
+   {"who": "green", "mood": "focus", "say": "Elige UN grupo y muévelo una vez. Solo uno por turno, ¡así que haz que valga!"},
+   {"who": "green", "mood": "focus", "say": "Cada unidad se mueve distinto. Botas y orugas necesitan caminos..."},
+   {"who": "green", "mood": "focus", "say": "...pero los helicópteros vuelan, así que solo ellos cruzan el río. ¡Por ahora, mandemos la semioruga por el puente!"}
+  ]},
+  "march_done": {"lines": [
+   {"who": "green", "mood": "focus", "say": "Y ahora... ¿dónde se esconde Caqui?"}
+  ]},
+  "first_contact": {"lines": [
+   {"who": "tan", "mood": "happy", "say": "¡TOC TOC! ¡ES EL EJÉRCITO CAQUI, LLAMANDO POR LA GARANTÍA EXTENDIDA DE TU AUTO!"},
+   {"who": "green", "mood": "angry", "say": "No eres graciosa, Caqui."},
+   {"who": "tan", "mood": "happy", "say": "TIENES RAZÓN. SOY DESTERNILLANTE. AHORA RÍNDETE PARA QUE YO GANE."},
+   {"who": "green", "mood": "focus", "say": "Habla de la opción RENDIRSE. Si una batalla está de verdad perdida, puedes rendirte desde el menú de ESC."},
+   {"who": "green", "mood": "angry", "say": "Pero no esta, Caqui. Nadie se rinde todavía."},
+   {"who": "tan", "mood": "happy", "say": "¡MUAJAJAJAJAJA!"},
+   {"who": "green", "mood": "focus", "say": "...¿Y ahora qué?"},
+   {"who": "tan", "mood": "happy", "say": "Nada. Solo quería hacer una risa malvada."},
+   {"who": "green", "mood": "sad", "say": "...No ha cambiado nada."},
+   {"who": "green", "mood": "focus", "say": "¡Vamos a ganar esto, soldado! Hora de la siguiente fase: el ATAQUE."}
+  ]},
+  "attack": {"lines": [
+   {"who": "green", "mood": "focus", "say": "¡La última fase de cada turno es el ATAQUE! Primero, elige desde dónde atacar: los anillos naranjas."},
+   {"who": "green", "mood": "focus", "say": "Luego elige un objetivo, y el cursor se pone rojo. Cada unidad puede disparar una vez por turno."},
+   {"who": "green", "mood": "focus", "say": "Cuidado: el enemigo dispara al mismo tiempo, y el daño es un poco al azar."},
+   {"who": "green", "mood": "focus", "say": "Así que mira DAS y RECIBES antes de pulsar ¡FUEGO!"},
+   {"who": "tan", "mood": "happy", "say": "Psst. Se le olvidó decirte que yo también disparo."},
+   {"who": "green", "mood": "angry", "say": "LITERALMENTE acabo de decir eso."}
+  ]},
+  "cleared": {"lines": [
+   {"who": "green", "mood": "happy", "say": "¡Despejado! Puedes entrar gratis, o QUEDARTE y mantener tu posición."},
+   {"who": "tan", "mood": "sad", "say": "Ese era mi puesto favorito."},
+   {"who": "green", "mood": "focus", "say": "Dices eso de todos los puestos."}
+  ]},
+  "who_beats_who": {"lines": [
+   {"who": "green", "mood": "focus", "say": "Ahora, es importante saber qué vehículo le gana a cuál."},
+   {"who": "green", "mood": "focus", "say": "Piensa en piedra, papel o tijera... con motores."},
+   {"who": "green", "mood": "focus", "say": "Los tanques aplastan a las semiorugas. Los helicópteros les ganan a los tanques, porque los tanques ni pueden disparar hacia arriba."},
+   {"who": "green", "mood": "focus", "say": "Y las semiorugas llevan cañones antiaéreos. Los helicópteros las odian."},
+   {"who": "tan", "mood": "happy", "say": "Y Caqui le gana a Verde. Facilito de recordar."},
+   {"who": "green", "mood": "angry", "say": "Cállate, Caqui."},
+   {"who": "green", "mood": "focus", "say": "Eso es todo por este turno, soldado. Pulsa ESC y elige FIN DE TURNO."}
+  ]},
+  "hq": {"lines": [
+   {"who": "green", "mood": "focus", "say": "Esa es su base. Tiene 100 puntos de vida, y dispara de vuelta.", "look": "enemy_hq"},
+   {"who": "green", "mood": "focus", "say": "¡Bájala a cero, y ganamos!"},
+   {"who": "tan", "mood": "sad", "say": "¿POR QUÉ QUIERES DESTRUIRME? ¿QUÉ TE HICE YO?"},
+   {"who": "green", "mood": "focus", "say": "Es SOLO un juego, Caqui. Madura."},
+   {"who": "tan", "mood": "hurt", "say": "Para mí no es solo un juego, Verde. Yo... yo siento algo por ti."},
+   {"who": "tan", "mood": "hurt", "say": "¡Quiero casarme contigo!"},
+   {"who": "green", "mood": "angry", "say": "¡¿CAQUI, QUÉ RAYOS?! ¡AHORA NO!"},
+   {"who": "tan", "mood": "sad", "say": "Pero-"},
+   {"who": "green", "mood": "angry", "say": "DIJE QUE AHORA NO. LO HABLAMOS DETRÁS DE CÁMARAS."},
+   {"who": "green", "mood": "hurt", "say": "...Perdóname, soldado. ¿En qué estábamos? Ah, sí. ¡A lo nuestro!"}
+  ]},
+  "hand_off": {"lines": [
+   {"who": "green", "mood": "happy", "say": "Eso es todo lo que tengo, soldado. Lo demás depende de ti."},
+   {"who": "green", "mood": "focus", "say": "Si alguna vez tienes dudas, el MANUAL en la pantalla de título lo explica todo con detalle."},
+   {"who": "green", "mood": "focus", "say": "¡Una última cosa! También puedes armar tus propios campos de batalla en el EDITOR DE MAPAS."},
+   {"who": "tan", "mood": "happy", "say": "O busca a un amigo y péleense entre ustedes... o a alguien especial, si te va ese rollo. ¿Verdad, Verde?"},
+   {"who": "green", "mood": "happy", "say": "Dios mío. En fin, soldado... ¡BUENA SUERTE!"}
+  ]}
+ }
+}

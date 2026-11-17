@@ -1,0 +1,63 @@
+{
+ "_about": "La guía del editor de mapas en español (menú del editor > CÓMO FUNCIONA): título, dibujo y párrafos.",
+ "pages": [
+  {
+   "title": "LA CUADRÍCULA",
+   "picture": "ed_grid",
+   "text": [
+    "Tu mapa es una cuadrícula de lugares. Los puntos redondos son lugares para PUESTOS, las líneas entre ellos son UNIONES, y los huecos entre cuatro puestos son DIAGONALES.",
+    "Las FLECHAS mueven las esquinas amarillas. La barra de abajo siempre dice qué es el lugar y qué hará ENTER."
+   ]
+  },
+  {
+   "title": "PUESTOS",
+   "picture": "ed_outposts",
+   "text": [
+    "ENTER en un lugar de puesto lo cambia: NADA, PUESTO, CUARTEL, y otra vez NADA.",
+    "NADA deja un hueco en el mapa. Un CUARTEL (+1) da un soldado extra cada turno a quien lo tenga."
+   ]
+  },
+  {
+   "title": "UNIONES",
+   "picture": "ed_links",
+   "text": [
+    "ENTER en una unión: NADA, CAMINO, RÍO, PUENTE.",
+    "Caminos y puentes: pasan todos. Ríos: solo helicópteros, pero todos disparan a través. NADA: un bosque o montañas, nadie pasa.",
+    "En una diagonal, ENTER agrega caminos: hacia un lado, el otro, o los dos."
+   ]
+  },
+  {
+   "title": "MOVER UNA BASE",
+   "picture": "ed_hq",
+   "text": [
+    "Cada lado siempre tiene exactamente una BASE. ENTER sobre una base la levanta, y flota con tu cursor.",
+    "Pulsa ENTER en cualquier lugar de puesto para soltarla ahí; el lugar que dejó pasa a ser un puesto común. ESC la devuelve."
+   ]
+  },
+  {
+   "title": "ESPEJO",
+   "picture": "ed_mirror",
+   "text": [
+    "Con ESPEJO activado, cada cambio se copia al lado opuesto, dado vuelta, así los dos ejércitos tienen el mismo mapa. Mover una base mueve la otra también.",
+    "Desactiva ESPEJO en el menú para armar un escenario desparejo."
+   ]
+  },
+  {
+   "title": "GUARDAR Y JUGAR",
+   "picture": "ed_menu",
+   "text": [
+    "Sube desde la fila de arriba (o pulsa ESC) para el menú: guardar, tamaño, tema y nombre.",
+    "GUARDAR escribe el mapa en la carpeta maps, junto a los que trae el juego. Juégalo desde ELIGE UN CAMPO DE BATALLA.",
+    "Comparte un mapa enviando su archivo; pon el archivo de un amigo en maps para jugarlo."
+   ]
+  },
+  {
+   "title": "MAPAS GENERADOS",
+   "picture": "ed_mirror",
+   "text": [
+    "+ GENERAR MAPA en la lista de mapas arma un mapa justo y espejado con unos pocos ajustes. Usa OTRO hasta que te guste, y luego GUARDARLO o EDITARLO antes.",
+    "¿Arruinaste un mapa que venía con el juego? VOLVER AL ORIGINAL en el menú del editor lo deja como estaba."
+   ]
+  }
+ ]
+}

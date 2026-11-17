@@ -4,6 +4,7 @@ import os
 import pygame
 
 from .data import ROOT, load_json
+from .lang import tr
 
 SW, SH = 320, 240
 STYLE = load_json('data', 'style.json')
@@ -67,7 +68,7 @@ def _sheet(name, color):
 
 
 def text_width(s, scale=1):
-    return len(str(s)) * 6 * scale - scale
+    return len(tr(str(s).upper())) * 6 * scale - scale
 
 
 def _render(s, color, scale):
@@ -89,7 +90,7 @@ def _render(s, color, scale):
 
 
 def text(surf, s, x, y, color=None, scale=1, align='l', shadow=None):
-    s = str(s).upper()
+    s = tr(str(s).upper())              # in the chosen language (lang.py)
     color = color or C['white']
     w = text_width(s, scale)
     x -= w // 2 if align == 'c' else w if align == 'r' else 0
@@ -99,6 +100,7 @@ def text(surf, s, x, y, color=None, scale=1, align='l', shadow=None):
 
 
 def wrap(s, width):
+    s = tr(str(s).upper())
     lines, line = [], ''
     for word in str(s).split(' '):
         if len((line + ' ' + word).strip()) > width:

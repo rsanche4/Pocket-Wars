@@ -1,10 +1,11 @@
 """Drawing a battle: the ground, outposts, buildings, units, fog and the cursor. Used by the game screen (and later
-the title screen and How to Play, which draw battles of their own)."""
+the title screen and the Manual, which draw battles of their own)."""
 import math
 import pygame
 
 from .data import ORDER, UNITS
-from .gfx import C, SIDES, SW, SH, rect, ellipse, ellipse_ring, blit, digits, hp_bar, text, unit_image, building_image, image, SIDE_FILE
+from .gfx import (C, SIDES, SW, SH, rect, ellipse, ellipse_ring, blit, digits, hp_bar, text, unit_image, building_image,
+                  image, SIDE_FILE)
 from .world import build_world, obstacles, outpost_kinds
 
 
@@ -286,7 +287,8 @@ class Field:
         soldier = unit_image('map', 'soldier', side)
         chute = image(f'ui/parachute_{SIDE_FILE[side]}.png')
         if open_ < 1:
-            chute = pygame.transform.scale(chute, (max(1, round(chute.get_width() * open_)), max(1, round(chute.get_height() * open_))))
+            size = (max(1, round(chute.get_width() * open_)), max(1, round(chute.get_height() * open_)))
+            chute = pygame.transform.scale(chute, size)
         head = y - soldier.get_height()
         blit(surf, chute, x - chute.get_width() / 2, head + 4 - chute.get_height(), alpha)    # cords meet at the head
         blit(surf, soldier, x - soldier.get_width() // 2, head, alpha)

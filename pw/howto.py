@@ -1,18 +1,18 @@
-"""How to Play: pages of a picture plus text (text in data/howto.json). Most pictures are little battles drawn by the
+"""The MANUAL: pages of a picture plus text (text in data/howto.json, or data/lang/<language>/howto.json). Most pictures are little battles drawn by the
 real game code; put assets/howto/<picture>.png (292x100) to show your own picture for a page instead."""
 import math
 import pygame
 
 from . import sound
-from .data import UNITS, load_json
+from .data import UNITS
 from .rules import Unit, Fight, can_hit, damage_range
 from .demo import Scene
 from . import editor
 from .cutin import CutIn
 from .menu import Pages
+from .lang import load_text
 from .gfx import C, SIDES, SW, SH, rect, text, text_width, wrap, blit, image, has_image, portrait, unit_image
 
-PAGES = load_json('data', 'howto.json')['pages']
 PW, PH = 292, 100           # picture size
 GREEN, TAN = 0, 1
 
@@ -20,19 +20,23 @@ GREEN, TAN = 0, 1
 def make_scenes():
     return {
         'goal': Scene('goal', 'grass', ['H-o-o-h'], .32,
-                      [((0, 0), GREEN, 'hq', 1), ((0, 0), GREEN, 'halftrack', 1), ((0, 0), GREEN, 'soldier', 2), ((1, 0), GREEN, 'soldier', 2),
+                      [((0, 0), GREEN, 'hq', 1), ((0, 0), GREEN, 'halftrack', 1), ((0, 0), GREEN, 'soldier', 2),
+                       ((1, 0), GREEN, 'soldier', 2),
                        ((2, 0), TAN, 'tank', 1), ((2, 0), TAN, 'soldier', 1), ((3, 0), TAN, 'hq', 1, 38), ((3, 0), TAN, 'soldier', 1)],
                       labels=[((0, 0), 'YOUR HQ', SIDES[0]['light']), ((3, 0), 'ENEMY HQ', SIDES[1]['light'])]),
         'outposts': Scene('outposts', 'desert', ['H-o-o-o-h'], .3,
                           [((0, 0), GREEN, 'hq', 1), ((0, 0), GREEN, 'soldier', 1), ((1, 0), GREEN, 'soldier', 2),
                            ((3, 0), TAN, 'soldier', 1), ((3, 0), TAN, 'halftrack', 1), ((4, 0), TAN, 'hq', 1)],
-                          labels=[((1, 0), 'YOURS', SIDES[0]['light']), ((2, 0), 'EMPTY', C['white']), ((3, 0), 'ENEMY', SIDES[1]['light'])],
+                          labels=[((1, 0), 'YOURS', SIDES[0]['light']), ((2, 0), 'EMPTY', C['white']),
+                                  ((3, 0), 'ENEMY', SIDES[1]['light'])],
                           loop=('soldier', [(1, 0), (2, 0)], 1.6)),
         'gather': Scene('gather', 'grass', ['o-H-o~o', '  |', '  o'], .3,
-                        [((0, 0), GREEN, 'soldier', 1), ((1, 0), GREEN, 'hq', 1), ((1, 0), GREEN, 'soldier', 2), ((3, 0), TAN, 'soldier', 2)],
+                        [((0, 0), GREEN, 'soldier', 1), ((1, 0), GREEN, 'hq', 1), ((1, 0), GREEN, 'soldier', 2),
+                         ((3, 0), TAN, 'soldier', 2)],
                         glow=[(0, 0), (1, 0), (2, 0), (1, 1)], cursor=(2, 0), lift=10),
         'march': Scene('march', 'snow', ['H-o-o-o~o'], .28,
-                       [((0, 0), GREEN, 'hq', 1), ((0, 0), GREEN, 'soldier', 1), ((1, 0), GREEN, 'halftrack', 1), ((1, 0), GREEN, 'soldier', 2),
+                       [((0, 0), GREEN, 'hq', 1), ((0, 0), GREEN, 'soldier', 1), ((1, 0), GREEN, 'halftrack', 1),
+                        ((1, 0), GREEN, 'soldier', 2),
                         ((4, 0), TAN, 'soldier', 2), ((4, 0), TAN, 'tank', 1)],
                        glow=[(2, 0), (3, 0)], cursor=(3, 0), loop=('halftrack', [(1, 0), (2, 0), (3, 0)], 1.3)),
         'terrain': Scene('terrain', 'grass', ['G-o~o=o o'], .3,
@@ -51,7 +55,7 @@ BATTLES = [('tank', 'soldier', 11, 3), ('helicopter', 'tank', 8, 0), ('halftrack
 class HowTo(Pages):
     def __init__(self, app, pages=None, on_exit=None):
         self.app, self.page = app, 0
-        self.pages = pages or PAGES
+        self.pages = pages or load_text('howto.json')['pages']      # (in the chosen language)
         self.on_exit = on_exit or app.title
         self.scenes = make_scenes()
         self.panel = pygame.Surface((PW, PH))
@@ -130,7 +134,8 @@ class HowTo(Pages):
 
     def pic_matchups(self, p, now):
         p.fill(C['olive_dark'])
-        rows = [('tank', 'helicopter', '×', "CAN'T HIT IT", C['red']), ('helicopter', 'tank', '▶', 'NO RETURN FIRE', C['highlight']),
+        rows = [('tank', 'helicopter', '×', "CAN'T HIT IT", C['red']),
+                ('helicopter', 'tank', '▶', 'NO RETURN FIRE', C['highlight']),
                 ('halftrack', 'helicopter', '▶', '1.5x DAMAGE', C['highlight'])]
         for k, (a, b, sym, label, col) in enumerate(rows):
             y = 3 + k * 32

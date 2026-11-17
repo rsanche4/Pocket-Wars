@@ -12,7 +12,7 @@ import pygame
 from . import sound
 from .data import ROOT, parse_map, map_problems, reachable, save_map, default_of, reset_map, load_maps, \
     missing_defaults, restore_defaults
-from .mapgen import generate, OPTIONS, DEFAULTS
+from .mapgen import generate, blank_art, OPTIONS, DEFAULTS
 from .gfx import C, SIDES, SW, SH, THEMES, rect, box, text, ellipse, digits
 from .menus import map_card
 
@@ -20,15 +20,6 @@ OUTPOST_CYCLE = [' ', 'o', 'G']
 ACROSS_CYCLE, DOWN_CYCLE, DIAGONAL_CYCLE = [' ', '-', '~', '='], [' ', '|', '~', '='], [' ', '\\', '/', 'X']
 NAMES = ['MY MAP', 'SKIRMISH', 'BLOCKADE', 'RIVER RUN', 'HILL FIGHT', 'SANDBOX', 'BACKYARD', 'OPERATION']
 THEME_LIST = ['grass', 'desert', 'beach', 'snow']
-
-
-def blank_art(cols, rows):
-    """A grid of outposts joined by roads, Green HQ on the left, Tan HQ mirrored on the right."""
-    w, h = cols * 2 - 1, rows * 2 - 1
-    art = [[('o' if r % 2 == 0 and c % 2 == 0 else '-' if r % 2 == 0 else '|' if c % 2 == 0 else ' ') for c in range(w)] for r in range(h)]
-    mid = (rows - 1) // 2 * 2
-    art[mid][0], art[h - 1 - mid][w - 1] = 'H', 'h'
-    return [''.join(r) for r in art]
 
 
 def is_outpost(y, x):
@@ -311,7 +302,8 @@ class Editor:
         step = int(min(296 / max(1, cols - 1 + .6), 176 / max(1, rows - 1 + .8)))
         gw, gh = (cols - 1) * step, (rows - 1) * step
         ox, oy = round((SW - gw) / 2), round(34 + (176 - gh) / 2)
-        rect(surf, ox - step / 2 + 2, oy - step / 2 + 6, gw + step - 4, gh + step - 12, th['water'] if self.theme == 'beach' else th['base'])
+        ground = th['water'] if self.theme == 'beach' else th['base']
+        rect(surf, ox - step / 2 + 2, oy - step / 2 + 6, gw + step - 4, gh + step - 12, ground)
         nx, ny = lambda c: ox + c * step, lambda r: oy + r * step
         blink = int(now / .25) % 2
 
@@ -632,7 +624,8 @@ class Generator:
         box(surf, 154, 20, 162, 198)                  # what the map is like, not what it looks like
         text(surf, self.d['name'], 235, 26, C['ink'], 1, 'c')
         h = map_card(surf, self.m, 157, 38, 156)
-        for k, line in enumerate(['◀ ▶ CHANGE A SETTING', 'REROLL: ANOTHER MAP', 'EDIT IT: SEE AND TWEAK IT', 'SAVE IT: READY TO PLAY']):
+        tips = ['◀ ▶ CHANGE A SETTING', 'REROLL: ANOTHER MAP', 'EDIT IT: SEE AND TWEAK IT', 'SAVE IT: READY TO PLAY']
+        for k, line in enumerate(tips):
             text(surf, line, 235, 46 + h + k * 10, C['olive'], 1, 'c')
 
 
@@ -649,12 +642,16 @@ def cycle(e):
 
 DEMO_ART = ['H-o-G-o=o', '|\\| ~ |\\|', 'o=o-G-o-h']
 DEMOS = {      # picture name: (how to make the editor, the steps it plays, one every 0.8 s)
-    'ed_grid': (lambda: dict(art=blank_art(5, 2)), [at(y, x) for y, x in ((0, 0), (0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (2, 5), (2, 6), (1, 7), (0, 8))]),
+    'ed_grid': (lambda: dict(art=blank_art(5, 2)),
+                [at(y, x) for y, x in ((0, 0), (0, 1), (0, 2), (1, 2), (1, 3), (2, 4), (2, 5), (2, 6), (1, 7), (0, 8))]),
     'ed_outposts': (lambda: dict(art=blank_art(5, 2), mirror=False, at=(0, 4)), [cycle, cycle, cycle]),
-    'ed_links': (lambda: dict(art=blank_art(5, 2), mirror=False, at=(0, 3)), [cycle, cycle, cycle, cycle, at(1, 3), cycle, cycle, cycle, cycle]),
+    'ed_links': (lambda: dict(art=blank_art(5, 2), mirror=False, at=(0, 3)),
+                 [cycle, cycle, cycle, cycle, at(1, 3), cycle, cycle, cycle, cycle]),
     'ed_hq': (lambda: dict(art=blank_art(5, 2)), [cycle, at(0, 1), at(0, 2), at(1, 2), at(2, 2), lambda e: e.drop()]),
     'ed_mirror': (lambda: dict(art=blank_art(5, 2), at=(0, 2)), [cycle, at(1, 1), cycle, at(0, 3), cycle]),
-    'ed_menu': (lambda: dict(art=DEMO_ART), [lambda e: e.open_menu(), lambda e: setattr(e, 'msel', 1), lambda e: setattr(e, 'msel', 2), lambda e: setattr(e, 'msel', 3)]),
+    'ed_menu': (lambda: dict(art=DEMO_ART),
+                [lambda e: e.open_menu(), lambda e: setattr(e, 'msel', 1), lambda e: setattr(e, 'msel', 2),
+                 lambda e: setattr(e, 'msel', 3)]),
     'editor': (lambda: dict(art=DEMO_ART), [at(0, x) for x in range(9)]),
 }
 _runs, _screen = {}, []

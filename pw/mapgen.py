@@ -54,14 +54,19 @@ def generate(settings, seed, taken=()):
     return {'name': name, 'theme': theme, 'blurb': blurb, 'art': art}
 
 
-def fallback(s):
-    """A plain grid of roads (only if every try failed, which shouldn't happen)."""
-    cols, rows = SIZES[s['size']][0]
+def blank_art(cols, rows):
+    """A grid of outposts joined by roads, Green HQ on the left, Tan HQ mirrored on the right."""
     w, h = cols * 2 - 1, rows * 2 - 1
-    art = [[('o' if r % 2 == 0 and c % 2 == 0 else '-' if r % 2 == 0 else '|' if c % 2 == 0 else ' ') for c in range(w)] for r in range(h)]
+    art = [[('o' if r % 2 == 0 and c % 2 == 0 else '-' if r % 2 == 0 else '|' if c % 2 == 0 else ' ') for c in range(w)]
+           for r in range(h)]
     mid = (rows - 1) // 2 * 2
     art[mid][0], art[h - 1 - mid][w - 1] = 'H', 'h'
-    return [''.join(r).rstrip() for r in art]
+    return [''.join(r) for r in art]
+
+
+def fallback(s):
+    """A plain grid of roads (only if every try failed, which shouldn't happen)."""
+    return blank_art(*SIZES[s['size']][0])
 
 
 class Builder:

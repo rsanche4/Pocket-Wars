@@ -4,7 +4,8 @@ router said, the join screen where you type or paste a code, and ONLINE HELP (pa
 import pygame
 
 from . import sound, net
-from .data import load_json, parse_map
+from .data import parse_map
+from .lang import load_text
 from .gfx import C, SW, SH, rect, box, text, wrap
 from .menu import Pages
 from .menus import ListScreen
@@ -12,6 +13,7 @@ from .settings import S
 
 
 def copy_text(s):
+    """Put s on the clipboard. False if this system won't let us."""
     try:
         pygame.scrap.put_text(s)
         return True
@@ -20,6 +22,7 @@ def copy_text(s):
 
 
 def paste_text():
+    """The text on the clipboard ('' if there's none, or no clipboard)."""
     try:
         return pygame.scrap.get_text() or ''
     except (pygame.error, AttributeError):
@@ -54,7 +57,7 @@ class OnlineHelp(Pages):
     """Pages of plain text: how online play works, opening a port, the firewall, and what to do when it won't work."""
     def __init__(self, app, on_exit):
         self.app, self.page, self.on_exit = app, 0, on_exit
-        self.pages = load_json('data', 'online_help.json')['pages']
+        self.pages = load_text('online_help.json')['pages']
         sound.music('title')
 
     def draw(self, surf, now):
@@ -292,7 +295,8 @@ class JoinScreen:
         rect(surf, 40, 48, SW - 80, 22, C['ink'])
         rect(surf, 41, 49, SW - 82, 20, C['highlight'] if on else C['paper'])
         shown = self.code + ('_' if on and int(now / .4) % 2 else '')
-        text(surf, shown or ('' if on else 'NO CODE YET'), SW / 2, 53, C['ink'] if self.code else C['dim'], 2 if len(self.code) <= 19 else 1, 'c')
+        text(surf, shown or ('' if on else 'NO CODE YET'), SW / 2, 53, C['ink'] if self.code else C['dim'],
+             2 if len(self.code) <= 19 else 1, 'c')
         if self.join:
             text(surf, 'CONNECTING' + '.' * (int(now * 3) % 3 + 1), SW / 2, 90, C['ink'], 1, 'c')
             text(surf, 'ESC: GIVE UP', SW / 2, 104, C['dim'], 1, 'c')

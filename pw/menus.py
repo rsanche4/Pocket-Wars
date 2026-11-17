@@ -5,6 +5,7 @@ from . import sound, learn
 from .data import map_problems, map_info
 from .gfx import C, SW, SH, THEMES, rect, box, text, wrap
 from .settings import S, save
+from .lang import LANGUAGES, language
 
 
 def cycle(options, value, d):
@@ -218,8 +219,10 @@ class Options(ListScreen):
         super().key(k)
 
     def items(self):
-        flip = lambda key: {'l': key[0], 'val': lambda: '◀ ON ▶' if S[key[1]] else '◀ OFF ▶', 'adj': lambda d: S.__setitem__(key[1], not S[key[1]])}
-        volume = lambda label, key: {'l': label, 'val': lambda: f'◀ {S[key]} ▶', 'adj': lambda d: S.__setitem__(key, max(0, min(10, S[key] + d)))}
+        flip = lambda key: {'l': key[0], 'val': lambda: '◀ ON ▶' if S[key[1]] else '◀ OFF ▶',
+                            'adj': lambda d: S.__setitem__(key[1], not S[key[1]])}
+        volume = lambda label, key: {'l': label, 'val': lambda: f'◀ {S[key]} ▶',
+                                     'adj': lambda d: S.__setitem__(key, max(0, min(10, S[key] + d)))}
 
         def toggle_full(d):
             S['fullscreen'] = not S['fullscreen']
@@ -241,4 +244,6 @@ class Options(ListScreen):
                 choice('BATTLE SCENES', 'anim', ['full', 'fast', 'off']),
                 {'l': 'FULL SCREEN', 'val': lambda: '◀ ON ▶' if S['fullscreen'] else '◀ OFF ▶', 'adj': toggle_full},
                 {'l': "HARD'S MEMORY", 'val': memory, 'f': erase},
+                {'l': 'LANGUAGE', 'val': lambda: f"◀ {LANGUAGES[language()]} ▶",
+                 'adj': lambda d: S.__setitem__('language', cycle(list(LANGUAGES), language(), d))},
                 {'l': 'BACK', 'f': self.back}]

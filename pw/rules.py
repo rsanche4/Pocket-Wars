@@ -42,6 +42,15 @@ class Unit:
     hp: int
 
 
+def encode_move(action, result=None):
+    """A move as plain data (for the network and for recordings): units become their ids, and a fight carries its
+    roll (taken from result, the Fight it produced)."""
+    if action[0] == 'fight':
+        a, b, x, y = action[1:5]
+        return ['fight', a, b, x.id, y.id] + ([[result.dealt, result.taken]] if result else [])
+    return list(action)
+
+
 @dataclass
 class Fight:
     """What happened in one attack (the screen uses it to play the battle scene)."""
@@ -353,6 +362,16 @@ class Game:
         except (TypeError, ValueError, IndexError, KeyError):
             return False
         return False
+
+    def decode_move(self, move):
+        """A move from encode_move, with its units turned back into this board's own (None if they aren't here)."""
+        kind, *args = move
+        if kind == 'fight':
+            a, b, xid, yid, *roll = args
+            x = next((u for u in self.units[a] if u.id == xid), None)
+            y = next((u for u in self.units[b] if u.id == yid), None)
+            return ('fight', a, b, x, y, tuple(roll[0]) if roll else None) if x and y else None
+        return tuple(move)
 
     # ---------- online: the board as one side may see it ----------
     def to_wire(self, viewer=None, full=False):

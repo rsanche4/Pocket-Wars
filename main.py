@@ -136,7 +136,7 @@ class App:
 
     def watch(self, path):
         from pw.recordings import Watch, load
-        self.circle_to(Watch(self, load(path), path))
+        self.circle_to(Watch(self, load(path)))
 
     def how_to_play(self):
         from pw.howto import HowTo
@@ -153,15 +153,12 @@ class App:
 
     def editor_help(self, editor):
         from pw.howto import HowTo
-        from pw.data import load_json
-        self.scene = HowTo(self, load_json('data', 'editor_help.json')['pages'], on_exit=lambda: setattr(self, 'scene', editor))
+        from pw.lang import load_text
+        self.scene = HowTo(self, load_text('editor_help.json')['pages'], on_exit=lambda: setattr(self, 'scene', editor))
 
     def start_battle(self):
         from pw.play import Play
         self.circle_to(Play(self, self.chosen_map(), dict(S)))
-
-    def play_again(self):
-        self.start_battle()
 
     def main_menu(self):
         self.end_online()

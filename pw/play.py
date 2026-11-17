@@ -14,13 +14,14 @@ import pygame
 from . import ai, sound, learn
 from .stats import Stats
 from .data import UNITS, ORDER
-from .rules import Game, can_hit, damage_range, flies
+from .rules import Game, can_hit, damage_range, flies, encode_move
 from .field import Field, March, Drop
 from .cutin import CutIn
 from .tutorial import Tutorial
 from .menu import Menu
 from .gfx import C, SIDES, SW, SH, rect, text, text_width, blit, portrait, unit_image
 from .settings import S, save
+from .lang import tr
 
 TOP, BOTTOM = 13, 40
 VIEW_Y, VIEW_H = TOP, SH - TOP - BOTTOM
@@ -37,14 +38,6 @@ def avg(t):
 SPEEDS = {'full': 1, 'fast': .5, 'off': 0}      # battle scene setting -> how fast animations play
 PHASE_NAMES = {'gather': 'GATHER', 'march': 'MARCH', 'attack': 'ATTACK', 'over': 'GAME OVER'}
 BANNER_SECONDS = 1.4
-
-
-def to_wire(action, result=None):
-    """A move as plain data for the network: units become their ids, and a fight carries its roll."""
-    if action[0] == 'fight':
-        a, b, x, y = action[1:5]
-        return ['fight', a, b, x.id, y.id] + ([[result.dealt, result.taken]] if result else [])
-    return list(action)
 
 
 def action_spots(action):
@@ -161,33 +154,27 @@ class Play:
             self.link.send({'t': 'resign'})
         result = g.do(action)
         if self.recording is not None:
-            self.recording.append(to_wire(action, result))
+            self.recording.append(encode_move(action, result))
         if self.role == 'host' and action[0] != 'resign':
             if mine:            # the host's own move: tell the guest, as much as the guest may see of it
                 seen = not g.fog or not spots or any(i in before or i in g.sight(1) for i in spots)
-                self.link.send({'t': 'ev', 'a': to_wire(action, result) if seen else ['hidden'], 'snap': g.to_wire(1)})
+                self.link.send({'t': 'ev', 'a': encode_move(action, result) if seen else ['hidden'], 'snap': g.to_wire(1)})
             elif action[0] == 'fight':          # the guest's attack: the host rolled the dice
                 self.link.send({'t': 'dice', 'roll': [result.dealt, result.taken]})
             elif action[0] in ('end_turn', 'time_up'):      # the guest's turn is over: the board for the host's turn
                 self.link.send({'t': 'ev', 'a': None, 'snap': g.to_wire(1)})
         elif self.role == 'guest' and mine and action[0] not in ('fight', 'resign'):
-            self.link.send({'t': 'move', 'a': to_wire(action, result)})
+            self.link.send({'t': 'move', 'a': encode_move(action, result)})
         return result
 
-    def from_wire(self, action):
-        """A move as it came over the network, with units turned back into the board's own (None if unknown)."""
-        kind, *args = action
+    def incoming(self, move):
+        """A move from the other player's game, ready to play out here (None if its units aren't on this board)."""
         g = self.g
-        if kind == 'fight':
-            a, b, xid, yid, *roll = args
-            x = next((u for u in g.units[a] if u.id == xid), None)
-            y = next((u for u in g.units[b] if u.id == yid), None)
-            return ('fight', a, b, x, y, tuple(roll[0]) if roll else None) if x and y else None
-        if kind == 'march' and self.role == 'host':          # the host walks the guest's group its own way
-            src, path, ids = args
+        if move[0] == 'march' and self.role == 'host':        # the host walks the guest's group its own way
+            src, path, ids = move[1:]
             group = [u for u in g.units[src] if u.id in set(ids)]
             return ('march', src, g.destinations(g.cur, src, group)[path[-1]], ids)
-        return tuple(action)
+        return g.decode_move(move)
 
     def on_message(self, msg):
         """Online: something arrived from the other player's game."""
@@ -388,7 +375,7 @@ class Play:
 
     def over_menu(self, sel=0):
         w = self.g.winner
-        again = [] if self.role else [{'l': 'PLAY AGAIN', 'f': self.app.tutorial if self.tutorial else self.app.play_again}]
+        again = [] if self.role else [{'l': 'PLAY AGAIN', 'f': self.app.tutorial if self.tutorial else self.app.start_battle}]
         m = Menu(f"{SIDES[w]['name']} WINS!", [{'l': 'BATTLE STATS', 'f': self.show_stats}] + again +
                  [{'l': 'MAIN MENU', 'f': self.app.main_menu}],
             sub=f"{SIDES[1 - w]['name']} RESIGNED" if self.g.resigned else None, win=w)
@@ -514,7 +501,7 @@ class Play:
                     g.from_wire(msg['snap'], self.me)
                 self.turn_started()
                 return
-            move = self.from_wire(action)
+            move = self.incoming(action)
             if move:
                 yield from self.perform(move)
             if self.role == 'guest':
@@ -712,7 +699,8 @@ class Play:
             if spots:
                 self.cur = spots[0]
 
-        items = [{'l': name(t), 'r': f"{UNITS[t]['cost']} SOLDIERS", 'icon': t, 'side': p, 'dis': not can(t), 'f': lambda t=t: choose(t)}
+        items = [{'l': name(t), 'r': f"{UNITS[t]['cost']} SOLDIERS", 'icon': t, 'side': p, 'dis': not can(t),
+                  'f': lambda t=t: choose(t)}
                  for t in ORDER if UNITS[t]['cost'] > 0]
         items.append({'l': 'DONE: END TURN' if g.turn == 1 else 'NEXT: MARCH', 'f': self.to_march})
         self.menu = Menu('BUY ONE VEHICLE?', items, sub='SPEND SOLDIERS ON ONE OUTPOST')
@@ -789,7 +777,8 @@ class Play:
             st['a'] = (st['a'] + d) % max(1, len(ready()))
             st['t'] = 0
 
-        items = [{'l': 'ATTACKER', 'val': lambda: f"◀ {name(attacker().type)} {attacker().hp}HP ▶" if attacker() else '-', 'adj': adj_attacker},
+        items = [{'l': 'ATTACKER', 'val': lambda: f"◀ {name(attacker().type)} {attacker().hp}HP ▶" if attacker() else '-',
+                  'adj': adj_attacker},
                  {'l': 'TARGET', 'val': lambda: f"◀ {name(target().type)} {target().hp}HP ▶" if target() else '-',
                   'adj': lambda d: st.update(t=(st['t'] + d) % max(1, len(targets(attacker()))))},
                  {'l': '', 'info': True, 'val': odds},
@@ -1082,7 +1071,7 @@ class Play:
                 portrait(surf, w, 'happy', 4, VIEW_Y + 40)
                 portrait(surf, 1 - w, 'sad', SW - 60, VIEW_Y + 40)
                 for side, cx in ((w, 32), (1 - w, SW - 32)):
-                    for k, word in enumerate(SIDES[side]['commander'].split(' ')):
+                    for k, word in enumerate(tr(SIDES[side]['commander']).split(' ')):     # (the whole name, translated)
                         text(surf, word, cx, VIEW_Y + 101 + k * 9, C['white'], 1, 'c', C['ink'])
         if self.pass_screen:
             self.draw_pass(surf, now)

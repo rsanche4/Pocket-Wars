@@ -6,6 +6,7 @@ import pygame
 from . import sound
 from .demo import title_battle
 from .gfx import C, SIDES, STYLE, SW, SH, rect, box, text, text_width, portrait, image, has_image
+from .lang import tr
 from .menu import Menu
 
 FOLDERS = ['green_commander', 'tan_general']
@@ -74,7 +75,7 @@ class Commander:
             for r in range(56):
                 glint.fill((255, 255, 255, 70), (s - r // 2, r, 5, 1))
             surf.blit(glint, (x, y))
-        for k, word in enumerate(SIDES[self.side]['commander'].split(' ')):
+        for k, word in enumerate(tr(SIDES[self.side]['commander']).split(' ')):     # (the whole name, translated)
             text(surf, word, x + 28, y + 62 + k * 9, SIDES[self.side]['light'], 1, 'c', C['ink'])
 
 

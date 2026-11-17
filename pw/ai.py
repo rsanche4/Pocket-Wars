@@ -269,7 +269,10 @@ def attack_score(g, a, b, x, y, lethal):
     if can_hit(y.type, x.type):
         l2, h2 = damage_range(y.type, x.type)
         pd, bd = p_kill(l2, h2, x.hp), expected_damage(l2, h2, x.hp)
-        loss = bd * .05 * W['ownHQ'] if x.type == 'hq' else pd * VALUE[x.type] + (1 - pd) * bd / UNITS[x.type]['hp'] * VALUE[x.type] * W['chip']
+        if x.type == 'hq':
+            loss = bd * .05 * W['ownHQ']
+        else:
+            loss = pd * VALUE[x.type] + (1 - pd) * bd / UNITS[x.type]['hp'] * VALUE[x.type] * W['chip']
     if y.type != 'hq' and len(g.units[b]) == 1:
         enemy_of_a = g.cur if g.owner(a) is None else 1 - g.owner(a)
         gain += pk * W['clear'] * (2 if g.map.nodes[b].barracks else 1) * (1.5 if g.hq[enemy_of_a] in g.adj[b] else 1)

@@ -1,0 +1,134 @@
+{
+ "_about": "Las páginas del MANUAL en español: título, dibujo (el mismo que en inglés) y párrafos.",
+ "pages": [
+  {
+   "title": "OBJETIVO",
+   "picture": "goal",
+   "text": [
+    "Destruye la BASE enemiga. Nada más da la victoria.",
+    "Cada base tiene 100 PV y nunca se mueve. Ataca a los enemigos de al lado y siempre devuelve el fuego.",
+    "Empiezas con tu base y una semioruga. Verde va primero; su primer turno es solo de despliegue."
+   ]
+  },
+  {
+   "title": "PUESTOS",
+   "picture": "outposts",
+   "text": [
+    "Los puestos son las paradas del mapa. Uno es tuyo mientras haya alguna de tus unidades en él; si lo dejas vacío, vuelve a no ser de nadie.",
+    "Marcha a un puesto vacío para tomarlo. Nunca puedes entrar en un puesto enemigo: primero tienes que vaciarlo."
+   ]
+  },
+  {
+   "title": "PASO 1 DE 3: REUNIR",
+   "picture": "gather",
+   "text": [
+    "Recibes 1 soldado, más 1 por cada cuartel que tengas.",
+    "Colócalos en tus puestos, o en un puesto vacío unido al tuyo por un camino. Los anillos brillantes te dicen dónde.",
+    "¿Con reloj? Los soldados que no hayas colocado cuando se acabe el tiempo se pierden."
+   ]
+  },
+  {
+   "title": "COMPRAR VEHÍCULOS",
+   "picture": "buy",
+   "text": [
+    "Después de colocar, puedes crear UN vehículo. Lo pagan soldados que estén en el mismo puesto; el vehículo aparece ahí mismo.",
+    "Pagan primero tus soldados más heridos, y el vehículo siempre llega con todos sus PV. Puede marchar y atacar ese mismo turno."
+   ]
+  },
+  {
+   "title": "PASO 2 DE 3: MARCHA",
+   "picture": "march",
+   "text": [
+    "Una vez por turno: elige uno de tus puestos, decide quién va y elige un destino brillante.",
+    "Un grupo avanza tanto como su unidad más lenta, solo por caminos y puentes, y nunca a través de puestos enemigos.",
+    "Solo los helicópteros vuelan a cualquier parte: sobre ríos y sobre el enemigo."
+   ]
+  },
+  {
+   "title": "PASO 3 DE 3: ATAQUE",
+   "picture": "battle",
+   "text": [
+    "Cada unidad puede atacar una vez a un puesto enemigo vecino, incluso al otro lado de un río.",
+    "Elige atacante y objetivo. Los dos disparan a la vez, con un daño al azar dentro de su rango.",
+    "Si vacías un puesto puedes entrar gratis (ESC esconde esa opción mientras miras)."
+   ]
+  },
+  {
+   "title": "QUIÉN LE GANA A QUIÉN",
+   "picture": "matchups",
+   "text": [
+    "Los tanques nunca pueden darles a los helicópteros, así que un helicóptero ataca a un tanque sin recibir fuego.",
+    "Las semiorugas son antiaéreas: hacen 1.5x de daño a los helicópteros.",
+    "Las unidades heridas pegan igual de fuerte que las sanas."
+   ]
+  },
+  {
+   "title": "UNIDADES",
+   "picture": "units",
+   "text": [
+    "DAÑO: por disparo. MOV: puestos por marcha. VISTA: cuánto ve en la niebla. COSTO: soldados que paga para crearla.",
+    "Los soldados son gratis y llegan cada turno."
+   ]
+  },
+  {
+   "title": "TABLA DE DAÑO",
+   "picture": "damage",
+   "text": [
+    "Las filas atacan y las columnas reciben. 8.5 ×3 quiere decir que un disparo hace 8.5 de daño en promedio, y hacen falta 3 para destruir a alguien sano.",
+    "AMARILLO: daño extra. ROJO: no puede darle. Una unidad herida pega igual de fuerte que una sana."
+   ]
+  },
+  {
+   "title": "TERRENO",
+   "picture": "terrain",
+   "text": [
+    "CAMINOS y PUENTES: cualquiera los cruza.",
+    "RÍOS: solo los cruzan los helicópteros, pero todos disparan a través.",
+    "BOSQUES y MONTAÑAS: nadie pasa ni dispara.",
+    "CUARTELES (insignia +1): un soldado más cada turno que lo tengas."
+   ]
+  },
+  {
+   "title": "NIEBLA DE GUERRA",
+   "picture": "fog",
+   "text": [
+    "NIEBLA (izquierda): ves el mapa, pero las unidades enemigas solo dentro de tu vista. APAGÓN (derecha): no ves nada fuera de tu vista, ni el mapa.",
+    "Vista: 1 puesto para soldados, tanques y base; 2 para semiorugas; 3 para helicópteros. Solo puedes marchar adonde ves."
+   ]
+  },
+  {
+   "title": "CONTROLES",
+   "picture": "controls",
+   "text": [
+    "ESC te saca de menús y opciones. En el mapa abre el menú: saltar marcha, fin de turno, volumen, pantalla completa, rendirse, salir.",
+    "ESC también pausa el juego durante el turno de la CPU (ahí también puedes cambiar el volumen)."
+   ]
+  },
+  {
+   "title": "EDITOR DE MAPAS",
+   "picture": "editor",
+   "text": [
+    "Elige EDITOR DE MAPAS en la pantalla de título. Las FLECHAS recorren puestos y uniones; ENTER cambia lo que hay o levanta una base para moverla.",
+    "ESPEJO copia cada cambio al otro lado, así el mapa es justo. El menú del editor (ARRIBA o ESC) tiene una guía: CÓMO FUNCIONA."
+   ]
+  },
+  {
+   "title": "COMANDANTES",
+   "picture": "commanders",
+   "text": [
+    "El COMANDANTE VERDE dirige a Verde y la GENERALA CAQUI dirige a Caqui.",
+    "Mira sus caras: festejan una baja, se quejan cuando reciben un golpe, se enojan cuando atacan su base y se ponen tristes cuando pierden una unidad."
+   ]
+  },
+  {
+   "title": "CONSEJOS",
+   "picture": "tips",
+   "text": [
+    "Toma cuarteles pronto: se acumulan.",
+    "Muchos tanques pierden contra helicópteros; muchos helicópteros, contra semiorugas.",
+    "Quedarse atrás es perder. ¡Ataca!",
+    "¡También puedes grabar tus batallas (GRABAR al preparar la batalla) y verlas en GRABACIONES!"
+   ]
+  }
+ ]
+}

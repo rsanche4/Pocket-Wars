@@ -90,17 +90,6 @@ def restore(g, s):
     g.next_id, g.seen = list(s['next_id']), [set(s['seen'][0]), set(s['seen'][1])]
 
 
-def decode(g, move):
-    """A recorded move with its fight units turned back into the board's own (None if they aren't there)."""
-    kind, *args = move
-    if kind == 'fight':
-        a, b, xid, yid, roll = args
-        x = next((u for u in g.units[a] if u.id == xid), None)
-        y = next((u for u in g.units[b] if u.id == yid), None)
-        return ('fight', a, b, x, y, tuple(roll)) if x and y else None
-    return tuple(move)
-
-
 # ---------------------------------------------------------------------------------------------- the list
 class RecordingList:
     """Every saved recording: ENTER on one to watch it (or delete it), or open the folder to share them."""
@@ -108,9 +97,6 @@ class RecordingList:
         self.app, self.items = app, listing()
         self.sel, self.menu = min(sel, len(self.items) + 1), None
         sound.music('title')
-
-    def extra(self):
-        return ['OPEN FOLDER', '< BACK']
 
     def key(self, k):
         if self.menu:
@@ -162,7 +148,7 @@ class RecordingList:
         pass
 
     def draw(self, surf, now):
-        rows = [f"{rec['saved'][5:]} {rec['map']['name']}" for _, rec, _ in self.items] + self.extra()
+        rows = [f"{rec['saved'][5:]} {rec['map']['name']}" for _, rec, _ in self.items] + ['OPEN FOLDER', '< BACK']
         surf.fill(C['olive_dark'])
         rect(surf, 0, 0, SW, 16, C['olive'])
         text(surf, 'RECORDINGS', SW / 2, 5, C['highlight'], 1, 'c', C['ink'])
@@ -179,7 +165,8 @@ class RecordingList:
         if self.sel < len(self.items):
             path, rec, size = self.items[self.sel]
             lines = [(rec['map']['name'].upper(), C['ink']), (rec['saved'], C['dim']), ('', None),
-                     (f"{MODES.get(rec['mode'], rec['mode'].upper())}" + (f" ({rec['cpu'].upper()})" if rec['mode'] == 'cpu' else ''), C['ink']),
+                     (MODES.get(rec['mode'], rec['mode'].upper()) + (f" ({rec['cpu'].upper()})" if rec['mode'] == 'cpu' else ''),
+                      C['ink']),
                      (f"GREEN: {rec['players'][0]}", SIDES[0]['dark']), (f"TAN: {rec['players'][1]}", SIDES[1]['dark']),
                      (f"FOG: {rec['fog'].upper()}", C['ink']), (f"TURNS: {rec['turns']}", C['ink']),
                      (result_text(rec), C['olive']), ('', None), (f'SIZE: {max(1, round(size / 1024))} KB', C['dim'])]
@@ -225,16 +212,15 @@ class Watch(Play):
     each phase's board is worked out up front, so jumping anywhere is instant, and PLAY animates a phase's moves."""
     watching = True
 
-    def __init__(self, app, rec, path):
-        self.rec, self.path = rec, path
+    def __init__(self, app, rec):
+        self.rec = rec
         self.view, self.focus, self.button = 'green', 'map', 2
         self.playing = False
         m = parse_map(rec['map'])
         super().__init__(app, m, {'mode': 'watch', 'cpu': 'normal', 'fog': rec['fog'], 'timer': 0, 'anim': S['anim']})
-        self.moves, self.phases, self.final = rec['moves'], [], None
-        self.cut_up(m)
-        self.at = 0
-        self.go(0, quiet=True)
+        self.moves = rec['moves']
+        self.cut_up(m)                   # (sets phases and final)
+        self.go(0, quiet=True)           # (sets at: the phase on screen)
 
     def cut_up(self, m):
         """Run the whole battle once, instantly, noting the board where each phase starts."""
@@ -242,7 +228,7 @@ class Watch(Play):
         key = lambda: (g.turn, g.cur, g.phase)
         self.phases = [(snap(g), 0, key())]
         for k, move in enumerate(self.moves):
-            action = decode(g, move)
+            action = g.decode_move(move)
             try:
                 g.do(action)
             except (TypeError, ValueError, IndexError, KeyError, AttributeError):
@@ -332,7 +318,7 @@ class Watch(Play):
             yield 1.0
             start, end = self.phases[self.at][1], self.phases[self.at + 1][1]
             for move in self.moves[start:end]:
-                action = self.from_wire(move)
+                action = self.g.decode_move(move)
                 if action:
                     yield from self.perform(action)
             yield .5
@@ -413,7 +399,8 @@ class Watch(Play):
         text(surf, f'T{g.turn}', 14, 3, SIDES[p]['main'], 1, 'l', C['ink'])
         phase = PHASE_NAMES[g.phase] if g.phase != 'over' else 'END'
         x = 14 + text_width(f'T{g.turn}') + 4
-        rect(surf, x - 2, 1, text_width(phase) + 4, TOP - 3, C['grey'] if g.phase == 'over' else C.get('phase_' + g.phase, C['highlight']))
+        tag = C['grey'] if g.phase == 'over' else C.get('phase_' + g.phase, C['highlight'])
+        rect(surf, x - 2, 1, text_width(phase) + 4, TOP - 3, tag)
         text(surf, phase, x, 3, C['ink'])
         bx = 112
         for k, b in enumerate(BUTTONS[:5]):

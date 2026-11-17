@@ -1,5 +1,5 @@
 {
  "_about": "Order of the glyphs in assets/ui/font.png (6x7 cells) and assets/ui/digits.png (4x5 cells).",
- "chars": "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,:;!?-+/()%'\"><*#=_&×·–▶◀▲▼★♥",
+ "chars": "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,:;!?-+/()%'\"><*#=_&×·–▶◀▲▼★♥ÁÉÍÓÚÑÜ¿¡",
  "digits": "0123456789+?"
 }

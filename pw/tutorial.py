@@ -18,6 +18,7 @@ import pygame
 
 from . import sound
 from .data import load_json, parse_map
+from .lang import load_text
 from .gfx import C, SIDES, SW, SH, rect, text, wrap, portrait, box
 
 MAP = ('data', 'default-maps', '01-boot-camp.json')    # the original Boot Camp, so edits to your copy can't break it
@@ -43,7 +44,7 @@ def load_map():
 class Tutorial:
     def __init__(self, play):
         self.play = play
-        self.words = load_json('data', 'tutorial.json')['scenes']
+        self.words = load_text('tutorial.json')['scenes']      # (in the chosen language)
         self.played = {}           # scene -> the turn it played on
         self.pending = None        # a scene whose moment has come, waiting for the screen to settle
         self.talk = None           # the scene being spoken: id, line number, when the line started (real time)

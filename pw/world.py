@@ -92,7 +92,10 @@ def build_world(m, k):
         if e.kind == 'river' or e.bridge:
             a, b = nodes[e.a], nodes[e.b]
             mx, my = (a.x + b.x) / 2, (a.y + b.y) / 2
-            water.append((mx, my - STEP_Y / 2 - 4, mx, my + STEP_Y / 2 + 4) if abs(a.y - b.y) < 1 else (mx - STEP_X / 2 - 4, my, mx + STEP_X / 2 + 4, my))
+            if abs(a.y - b.y) < 1:          # a horizontal link: the water runs up and down across it
+                water.append((mx, my - STEP_Y / 2 - 4, mx, my + STEP_Y / 2 + 4))
+            else:
+                water.append((mx - STEP_X / 2 - 4, my, mx + STEP_X / 2 + 4, my))
 
     world = pygame.Surface((w, h))
     wet = pygame.Surface((w, h), pygame.SRCALPHA)          # where scenery mustn't stand: water and shores

@@ -1,0 +1,35 @@
+{
+ "_about": "Las páginas de AYUDA EN LÍNEA en español: título y párrafos. 47123 es el puerto que usa Pocket Wars.",
+ "pages": [
+  {"title": "JUGAR EN LÍNEA", "text": [
+   "Uno de ustedes es el ANFITRIÓN: elige el mapa y los ajustes, y su juego lleva la batalla (guarda el tablero y tira los dados). El otro se UNE escribiendo el CÓDIGO DE INVITACIÓN del anfitrión.",
+   "El anfitrión juega con VERDE y el invitado con CAQUI. El invitado recibe el mapa solo, aunque el anfitrión lo haya hecho en el editor.",
+   "Solo el anfitrión puede necesitar preparar algo. Para unirse basta el código."
+  ]},
+  {"title": "EL ROUTER DEL ANFITRIÓN", "text": [
+   "Los routers de casa bloquean las conexiones que llegan desde internet. Cuando eres anfitrión, Pocket Wars le pide a tu router que abra el puerto 47123 solo.",
+   "Si la sala dice PUERTO ABIERTO, todo listo: mándale el código a tu amigo.",
+   "Si dice que NO PUDO ABRIR EL PUERTO, ábrelo a mano: mira la página siguiente. En el mismo Wi-Fi nunca hace falta: el código funciona tal cual."
+  ]},
+  {"title": "ABRIR UN PUERTO, PASO A PASO", "text": [
+   "1. Abre la página de tu router en un navegador. Suele ser 192.168.1.1 o 192.168.0.1. La dirección y la contraseña suelen venir en una etiqueta del router.",
+   "2. Busca REDIRECCIÓN DE PUERTOS (PORT FORWARDING). Puede estar en NAT, SERVIDORES VIRTUALES, JUEGOS o AVANZADO.",
+   "3. Agrega una regla: puerto 47123, protocolo TCP, hacia esta computadora. La sala muestra su dirección (ESTA COMPU: ...).",
+   "4. Guarda y vuelve a ser anfitrión. Tu amigo usa el código nuevo."
+  ]},
+  {"title": "FIREWALL DE WINDOWS", "text": [
+   "La primera vez que seas anfitrión, Windows pregunta si Pocket Wars (o Python) puede usar la red. Elige PERMITIR.",
+   "¿Dijiste que no sin querer? Abre SEGURIDAD DE WINDOWS, luego FIREWALL Y PROTECCIÓN DE RED, luego PERMITIR UNA APLICACIÓN A TRAVÉS DEL FIREWALL, y marca Pocket Wars (o Python)."
+  ]},
+  {"title": "¿SIGUE SIN CONECTAR?", "text": [
+   "Algunas compañías de internet comparten una dirección entre muchas casas, y los datos del celular siempre lo hacen. Así no se puede abrir ningún puerto, y la sala te lo avisa.",
+   "Soluciones fáciles: que tu amigo sea el anfitrión, o instalen los dos una app VPN gratis como TAILSCALE. Con ella encendida, el invitado escribe la dirección Tailscale del anfitrión (como 100.101.102.103) en vez del código.",
+   "Revisa también que el anfitrión siga en la pantalla ESPERANDO A TU AMIGO."
+  ]},
+  {"title": "UNIRSE", "text": [
+   "Escribe el código, o cópialo de tu chat y pulsa CTRL+V. Las letras que se parecen (O y 0, I y 1) cuentan como iguales.",
+   "También puedes escribir una dirección en vez de un código, como 192.168.1.5 en el mismo Wi-Fi.",
+   "Si alguno de los dos sale, la batalla del otro termina con CONEXIÓN PERDIDA."
+  ]}
+ ]
+}

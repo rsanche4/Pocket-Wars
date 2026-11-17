@@ -1,4 +1,4 @@
-"""Make-believe battles drawn with the real battlefield code: the title screen backdrop and How to Play pictures."""
+"""Make-believe battles drawn with the real battlefield code: the title screen backdrop and the Manual's pictures."""
 import math
 import random
 import pygame
@@ -143,7 +143,7 @@ def title_battle(maps, now, avoid=None):
     return LiveBattle(m, max(.42, 380 / m.w, 280 / m.h), now)
 
 
-# ---------------------------------------------------------------- small scenes for How to Play
+# ---------------------------------------------------------------- small scenes for the Manual
 class Scene:
     """A tiny hand-made battle: art (like a map file), units to place, and extras to show."""
     def __init__(self, name, theme, art, k, units, labels=(), link_labels=(), glow=(), cursor=None, loop=None, lift=6):

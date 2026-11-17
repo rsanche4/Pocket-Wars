@@ -83,7 +83,7 @@ def half_shape(is_left):
 
 class CutIn:
     def __init__(self, fight, now, speed=1.0, silent=False, theme='grass', link='road'):
-        """speed < 1 plays it faster (Fast battle scenes); silent = no sounds (How to Play pictures).
+        """speed < 1 plays it faster (Fast battle scenes); silent = no sounds (the Manual's pictures).
         theme = the map's look; link = what lies between the two outposts: 'road', 'river' or 'bridge'."""
         self.f, self.start, self.speed, self.silent = fight, now, speed, silent
         self.theme = theme if has_image(f'terrain/{theme}/ground.png') else 'grass'
@@ -192,9 +192,11 @@ class CutIn:
             if f.fired_back:
                 text(surf, f'-{f.taken}', ax, self.number_y(0) - up, C['highlight'], 2, 'c', C['ink'])
             else:
-                text(surf, f"{UNITS[y.type]['name']}s can't hit {UNITS[x.type]['name']}s", SW / 2, FEET + 20, C['white'], 1, 'c', C['ink'])
+                text(surf, f"{UNITS[y.type]['name']}s can't hit {UNITS[x.type]['name']}s", SW / 2, FEET + 20,
+                     C['white'], 1, 'c', C['ink'])
             if UNITS[x.type].get('bonus_vs', {}).get(y.type):
-                text(surf, 'ANTI-AIR!' if UNITS[y.type].get('flies') else 'BONUS DAMAGE!', SW / 2, HUD_Y + 66, C['highlight'], 1, 'c', C['ink'])
+                text(surf, 'ANTI-AIR!' if UNITS[y.type].get('flies') else 'BONUS DAMAGE!', SW / 2, HUD_Y + 66,
+                     C['highlight'], 1, 'c', C['ink'])
         if t >= HIT + .5:
             if y_dead:
                 text(surf, 'DESTROYED!', ay, FEET + 8, C['red'], 1, 'c', C['ink'])
@@ -204,7 +206,9 @@ class CutIn:
         def mood(mine_dead, theirs_dead, is_hq, took, dealt):
             if not reacted:
                 return 'focus'
-            return 'sad' if mine_dead else 'happy' if theirs_dead else 'angry' if is_hq and took > 0 else 'hurt' if took > dealt else 'happy'
+            if mine_dead or theirs_dead:
+                return 'sad' if mine_dead else 'happy'
+            return 'angry' if is_hq and took > 0 else 'hurt' if took > dealt else 'happy'
         faces = {x.side: mood(x_dead, y_dead and y.type != 'hq', False, f.taken, f.dealt),
                  y.side: mood(y_dead and y.type != 'hq', x_dead, y.type == 'hq', f.dealt, f.taken)}
         # the moment the faces change (as the HP drains), they hop and flash so the eye catches them
