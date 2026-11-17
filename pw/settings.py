@@ -12,6 +12,7 @@ DEFAULTS = {
     'fog': 'off',           # off / fog / blackout
     'timer': 0,             # seconds per turn, 0 = no timer
     'anim': 'full',         # battle scenes: full / fast / off
+    'record': False,        # save battles to recordings/ (see recordings.py)
     'sound': True, 'sfx_volume': 7,
     'music': True, 'music_volume': 5,
     'fullscreen': False,

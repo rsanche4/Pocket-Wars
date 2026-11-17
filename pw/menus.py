@@ -183,6 +183,7 @@ class Setup(ListScreen):
                     choice('FOG OF WAR', 'fog', ['off', 'fog', 'blackout']),
                     choice('TURN TIMER', 'timer', [0, 30, 60, 90], {0: 'OFF', 30: '30S', 60: '60S', 90: '90S'}),
                     choice('BATTLE SCENES', 'anim', ['full', 'fast', 'off']),
+                    choice('RECORD', 'record', [False, True], {False: 'OFF', True: 'ON'}),
                     {'l': 'HOST BATTLE!', 'f': self.app.host_lobby},
                     {'l': 'BACK', 'f': self.back}]
         out = [choice('MODE', 'mode', ['cpu', 'hot'], {'cpu': 'PLAYER VS CPU', 'hot': 'PLAYER VS PLAYER'})]
@@ -191,6 +192,7 @@ class Setup(ListScreen):
         out += [choice('FOG OF WAR', 'fog', ['off', 'fog', 'blackout']),
                 choice('TURN TIMER', 'timer', [0, 30, 60, 90], {0: 'OFF', 30: '30S', 60: '60S', 90: '90S'}),
                 choice('BATTLE SCENES', 'anim', ['full', 'fast', 'off']),
+                choice('RECORD', 'record', [False, True], {False: 'OFF', True: 'ON'}),
                 {'l': 'START BATTLE!', 'f': self.app.start_battle},
                 {'l': 'BACK', 'f': self.back}]
         return out

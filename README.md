@@ -31,6 +31,7 @@ The guest's game only ever receives what fog of war lets it see.
 | `data/` | unit stats (`units.json`), CPU settings (`ai.json`), colours and battle-scene timing (`style.json`), font layout (`font.json`), the Manual and editor guide text (`howto.json`, `editor_help.json`), the tutorial's dialogue (`tutorial.json`), the ONLINE HELP pages (`online_help.json`) | yes |
 | `maps/` | every map, one `.json` each: the built-in ones and the ones you save from the map editor (which can open and edit any of them). Share a map by sending its file; drop a friend's file in here to play it | yes: add or edit maps |
 | `data/default-maps/` | untouched copies of the built-in maps, used by RESET TO DEFAULT (and to bring back deleted ones) | only if you want to change what "default" means |
+| `recordings/` | battles saved with RECORD on (one small `.json` each): send one to a friend, drop theirs in here to watch it | yes: add, share or delete |
 | `pw/` | the Python code | |
 | `tools/` | helper scripts: CPU simulations, the sound and music generators | |
 
@@ -49,6 +50,7 @@ The guest's game only ever receives what fog of war lets it see.
 | `menu.py` | the pop-up menu box |
 | `play.py` | the battle screen: keys, menus, CPU turns, animations |
 | `net.py` | online play's connection: hosting, joining, invite codes, asking the router to open the port |
+| `recordings.py` | saving recordings, the RECORDINGS list and the viewer (playback bar, whose eyes you watch through) |
 | `online.py` | the PLAYER VS PLAYER, ONLINE, host lobby, join and ONLINE HELP screens |
 | `tutorial.py` | the TUTORIAL: its fixed path of lessons (only the move being taught is allowed), when each talk plays (words in `data/tutorial.json`), the talk box, and Tan's scripted turns until the hand-off |
 | `stats.py` | BATTLE STATS after a battle: a report card and turn-by-turn charts (numbers kept by `rules.py`) |

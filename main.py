@@ -130,6 +130,14 @@ class App:
         from pw.tutorial import load_map, SETTINGS
         self.circle_to(Play(self, load_map(), dict(SETTINGS, anim=S['anim'])))
 
+    def recordings(self):
+        from pw.recordings import RecordingList
+        self.scene = RecordingList(self)
+
+    def watch(self, path):
+        from pw.recordings import Watch, load
+        self.circle_to(Watch(self, load(path), path))
+
     def how_to_play(self):
         from pw.howto import HowTo
         self.scene = HowTo(self)
@@ -219,5 +227,7 @@ def iris(surf, k):
 if __name__ == '__main__':
     app = App()
     app.loop()
+    if getattr(app.scene, 'save_recording', None):       # closed the window mid-battle: keep the recording so far
+        app.scene.save_recording()
     app.end_online()                     # hang up (and ask the router to close the port again)
     pygame.quit()

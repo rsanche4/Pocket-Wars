@@ -8,6 +8,6 @@
  "sfx_volume": 10,
  "music": true,
  "music_volume": 10,
- "fullscreen": true,
+ "fullscreen": false,
  "map": "maps/08-blitz.json"
 }

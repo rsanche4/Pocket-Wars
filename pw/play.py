@@ -84,10 +84,13 @@ class Landed:
 
 
 class Play:
+    watching = False                     # True for a recording being played back (recordings.Watch)
+
     def __init__(self, app, m, settings, link=None):
         """settings: mode ('cpu', 'hot' = two players, 'watch' = CPU vs CPU, 'host' / 'guest' = online, see net.py),
-        cpu ('normal'/'hard'), fog, timer, anim, and tutorial (True: the Green Commander teaches as you play, see
-        tutorial.py). link: the connection to the other player's game, online."""
+        cpu ('normal'/'hard'), fog, timer, anim, tutorial (True: the Green Commander teaches as you play, see
+        tutorial.py) and record (True: save the battle to recordings/, see recordings.py). link: the connection to the
+        other player's game, online."""
         self.app, self.settings, self.link = app, settings, link
         mode = settings['mode']
         self.role = mode if mode in ('host', 'guest') else None
@@ -95,6 +98,9 @@ class Play:
         self.inbox = deque()                # online: the other player's moves, waiting to be played out
         self.dice = None                    # online guest: the host's roll for the guest's attack
         self.lost = False                   # online: the connection dropped
+        recording = settings.get('record') and not settings.get('tutorial') and mode in ('cpu', 'hot', 'host')
+        self.recording = [] if recording else None        # every move so far, as plain data (see save_recording)
+        self.saved = None                   # where the recording went
         self.bots = [mode in ('watch', 'guest'), mode in ('cpu', 'watch', 'host')]   # (online, "bot" = your friend)
         self.levels = [settings['cpu'], settings['cpu']]
         self.speed = SPEEDS[settings['anim']]
@@ -154,6 +160,8 @@ class Play:
         if mine and action[0] == 'resign':
             self.link.send({'t': 'resign'})
         result = g.do(action)
+        if self.recording is not None:
+            self.recording.append(to_wire(action, result))
         if self.role == 'host' and action[0] != 'resign':
             if mine:            # the host's own move: tell the guest, as much as the guest may see of it
                 seen = not g.fog or not spots or any(i in before or i in g.sight(1) for i in spots)
@@ -206,9 +214,9 @@ class Play:
         self.lost = True
         self.script = self.wait = self.cutin = self.before = None
         self.field.march = None
-        m = pausing(Menu('CONNECTION LOST', [{'l': 'MAIN MENU', 'f': self.app.main_menu}],
+        m = pausing(Menu('CONNECTION LOST', [{'l': 'MAIN MENU', 'f': self.leave}],
                          sub='YOUR FRIEND LEFT, OR THE LINK DROPPED'))
-        m.on_back = self.app.main_menu
+        m.on_back = self.leave
         self.menu = m
 
     def bot(self, p=None):
@@ -350,8 +358,24 @@ class Play:
                 self.say_banner('ATTACK!', C['phase_attack'], 'STEP 3 OF 3 · PICK WHERE TO ATTACK FROM')
                 sound.play('attack_phase')
 
+    def save_recording(self):
+        """Write the recording (once): when the battle ends, or when you leave it part-way."""
+        if self.recording and not self.saved:
+            from .recordings import save
+            try:
+                self.saved = save(self)
+            except OSError:
+                return
+            self.say_banner('RECORDING SAVED', C['highlight'], 'WATCH IT: TITLE > RECORDINGS')
+
+    def leave(self):
+        """Quit to the title (keeping the recording so far)."""
+        self.save_recording()
+        self.app.main_menu()
+
     def game_over(self):
         self.ended = True
+        self.save_recording()
         if self.role == 'host':                     # the whole board, so the guest's BATTLE STATS add up
             self.link.send({'t': 'final', 'snap': self.g.to_wire(full=True)})
         sound.play('victory')                       # whoever won, the fanfare and the victory music play for them
@@ -640,7 +664,7 @@ class Play:
         items += self.option_items()
         items += [{'l': 'RESIGN', 'f': self.ask_resign},
                   {'l': 'QUIT TO MENU', 'f': lambda: setattr(self, 'menu', pausing(Menu('QUIT THIS BATTLE?', [
-                      {'l': 'NO, KEEP PLAYING', 'f': lambda: None}, {'l': 'YES, QUIT', 'f': self.app.main_menu}])))}]
+                      {'l': 'NO, KEEP PLAYING', 'f': lambda: None}, {'l': 'YES, QUIT', 'f': self.leave}])))}]
         self.menu = pausing(Menu('PAUSED', items))
 
     def option_items(self):
@@ -1030,7 +1054,7 @@ class Play:
         vis = g.sight(v) if v is not None else None
         cam = self.cam()
         mine = not self.script and not self.bot() and not self.pass_screen and g.phase != 'over'   # your move
-        show_cursor = self.cur if not self.script and not self.bot() else None
+        show_cursor = self.cur if (not self.script and not self.bot()) or self.watching else None
         style = 'normal'
         if self.mode == 'pick_target' and mine:
             style = 'target' if self.cur in g.targets(g.cur, self.src) and self.allowed('target', self.cur) else 'no_target'

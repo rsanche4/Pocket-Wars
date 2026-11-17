@@ -145,7 +145,8 @@ class HostLobby:
     def begin(self, link):
         from .play import Play
         m = self.m
-        settings = {'mode': 'host', 'cpu': 'normal', 'fog': S['fog'], 'timer': S['timer'], 'anim': S['anim']}
+        settings = {'mode': 'host', 'cpu': 'normal', 'fog': S['fog'], 'timer': S['timer'], 'anim': S['anim'],
+                    'record': S['record']}
         play = Play(self.app, m, settings, link)
         link.send({'t': 'start', 'map': {'name': m.name, 'theme': m.theme, 'art': m.art, 'blurb': m.blurb},
                    'fog': S['fog'], 'timer': S['timer'], 'snap': play.g.to_wire(1)})
