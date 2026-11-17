@@ -1,5 +1,5 @@
 {
- "mode": "cpu",
+ "mode": "hot",
  "cpu": "hard",
  "fog": "blackout",
  "timer": 0,
@@ -7,7 +7,7 @@
  "sound": true,
  "sfx_volume": 10,
  "music": true,
- "music_volume": 5,
+ "music_volume": 10,
  "fullscreen": true,
- "map": "maps/01-boot-camp.json"
+ "map": "maps/08-blitz.json"
 }

@@ -104,7 +104,7 @@ class Title:
         self.app = app
         self.items = [{'l': 'TUTORIAL', 'f': app.tutorial},
                       {'l': 'PLAYER VS CPU', 'f': lambda: app.choose_map('cpu')},
-                      {'l': 'PLAYER VS PLAYER', 'f': lambda: app.choose_map('hot')},
+                      {'l': 'PLAYER VS PLAYER', 'f': app.pvp},
                       {'l': 'MANUAL', 'f': app.how_to_play},
                       {'l': 'MAP EDITOR', 'f': app.map_editor},
                       {'l': 'OPTIONS', 'f': app.options}]

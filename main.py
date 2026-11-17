@@ -1,7 +1,7 @@
 """Pocket Wars.  Run:  py main.py
 Keys: ARROWS move, ENTER (or Z, SPACE) select, ESC (or X) back, F11 full screen.
 
-The game is a set of screens (title, map choice, setup, options, manual, battle). Each screen has
+The game is a set of screens (title, map choice, setup, options, manual, online lobby, battle). Each screen has
 key(k), update(now, dt) and draw(surface, now); the App below switches between them. Menus switch at once; starting a
 battle plays a circle transition: black closes in on the menu, holds a moment, then opens out on the battlefield.
 """
@@ -36,6 +36,8 @@ class App:
         self.maps = load_maps()
         self.backdrop = Backdrop(self)
         self.scene, self.change, self.dt = None, None, 0
+        self.hosting = False             # choosing a map and settings to host an online battle
+        self.online = None               # the open online connection (a net.Host or net.Join), if any
         self.running = True
         self.title(intro=True)
 
@@ -67,7 +69,43 @@ class App:
 
     def title(self, intro=False):
         from pw.title import Title
+        self.hosting = False
         self.scene = Title(self, intro)
+
+    # ---------- player vs player and online (pw/online.py, pw/net.py) ----------
+    def pvp(self):
+        from pw.online import PlayerVsPlayer
+        self.hosting = False
+        self.scene = PlayerVsPlayer(self)
+
+    def online_menu(self):
+        from pw.online import OnlineMenu
+        self.end_online()
+        self.hosting = False
+        self.scene = OnlineMenu(self)
+
+    def host_setup(self):
+        from pw.menus import ChooseMap
+        self.hosting = True
+        self.maps = load_maps()
+        self.scene = ChooseMap(self)
+
+    def host_lobby(self):
+        from pw.online import HostLobby
+        self.scene = HostLobby(self)
+
+    def join_game(self):
+        from pw.online import JoinScreen
+        self.scene = JoinScreen(self)
+
+    def online_help(self, back):
+        from pw.online import OnlineHelp
+        self.scene = OnlineHelp(self, back)
+
+    def end_online(self):
+        if self.online:
+            self.online.close()
+            self.online = None
 
     def choose_map(self, mode):
         from pw.menus import ChooseMap
@@ -118,6 +156,7 @@ class App:
         self.start_battle()
 
     def main_menu(self):
+        self.end_online()
         self.backdrop.new(self.now)      # a different battle behind the title each time you come back
         self.title()
 
@@ -154,7 +193,11 @@ class App:
                         S['fullscreen'] = not S['fullscreen']
                         self.apply_fullscreen()
                         settings.save()
-                    elif e.key in KEYS and not self.change:
+                    elif self.change:
+                        pass
+                    elif getattr(self.scene, 'typed', None) and self.scene.typed(e):
+                        pass                      # a screen with a text box (JOIN) took the key as typing
+                    elif e.key in KEYS:
                         self.scene.key(KEYS[e.key])
             if not (self.change and self.draw_change()):
                 self.scene.update(self.now, dt)
@@ -174,5 +217,7 @@ def iris(surf, k):
 
 
 if __name__ == '__main__':
-    App().loop()
+    app = App()
+    app.loop()
+    app.end_online()                     # hang up (and ask the router to close the port again)
     pygame.quit()

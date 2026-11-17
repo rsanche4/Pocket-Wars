@@ -1,0 +1,35 @@
+{
+ "_about": "ONLINE HELP pages (PLAYER VS PLAYER > ONLINE > ONLINE HELP): title and paragraphs. 47123 is the port Pocket Wars uses (PORT in pw/net.py).",
+ "pages": [
+  {"title": "PLAYING ONLINE", "text": [
+   "One of you HOSTS: pick a map and settings, and your game runs the battle (it keeps the board and rolls the dice). The other JOINS by typing the host's INVITE CODE.",
+   "The host plays GREEN, the guest plays TAN. The guest gets the map automatically, even one the host made in the map editor.",
+   "Only the host may need any setup. Joining just needs the code."
+  ]},
+  {"title": "THE HOST'S ROUTER", "text": [
+   "Home routers block connections coming in from the internet. When you host, Pocket Wars asks your router to open port 47123 by itself.",
+   "If the lobby says PORT OPENED, you're all set: send your friend the code.",
+   "If it says it COULDN'T OPEN THE PORT, open it by hand: see the next page. On the same Wi-Fi you never need to: the code works as it is."
+  ]},
+  {"title": "OPEN A PORT, STEP BY STEP", "text": [
+   "1. Open your router's page in a web browser. It's usually 192.168.1.1 or 192.168.0.1. The address and password are often on a sticker on the router.",
+   "2. Find PORT FORWARDING. It may be under NAT, VIRTUAL SERVERS, GAMING or ADVANCED.",
+   "3. Add a rule: port 47123, protocol TCP, sent to this computer. The lobby shows this computer's address (THIS COMPUTER: ...).",
+   "4. Save, then host again. Your friend uses the new invite code."
+  ]},
+  {"title": "WINDOWS FIREWALL", "text": [
+   "The first time you host, Windows asks whether Pocket Wars (or Python) may use the network. Choose ALLOW.",
+   "Clicked no by mistake? Open WINDOWS SECURITY, then FIREWALL & NETWORK PROTECTION, then ALLOW AN APP THROUGH FIREWALL, and tick Pocket Wars (or Python)."
+  ]},
+  {"title": "STILL CAN'T CONNECT?", "text": [
+   "Some internet providers share one address between many homes, and phone hotspots always do. Then no port can be opened, and the lobby says so.",
+   "Easy fixes: let your friend host instead, or both install a free VPN app such as TAILSCALE. With it on, the guest types the host's Tailscale address (like 100.101.102.103) instead of the code.",
+   "Also check that the host is still on the WAITING FOR YOUR FRIEND screen."
+  ]},
+  {"title": "JOINING", "text": [
+   "Type the code, or copy it from your chat and press CTRL+V. Letters that look alike (O and 0, I and 1) are treated the same.",
+   "You can also type an address instead of a code, like 192.168.1.5 on the same Wi-Fi.",
+   "If either of you quits, the other one's battle ends with CONNECTION LOST."
+  ]}
+ ]
+}

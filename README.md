@@ -15,12 +15,20 @@ Keys: ARROWS move, ENTER (or Z, SPACE) select, ESC (or X) back, F11 full screen.
 Your settings are kept in `settings.json` (delete it to go back to the defaults).
 What the Hard CPU has learned about you is kept in `learned.json` (Options → HARD'S MEMORY erases it, or delete the file).
 
+## Playing online
+
+PLAYER VS PLAYER → ONLINE. One player hosts (picks the map and settings; their game runs the battle, checks every move
+and rolls the dice) and gets an invite code; the other joins by typing or pasting it, and receives the map automatically.
+The host's game listens on TCP port 47123 and asks the router to open it (UPnP). If the router won't, ONLINE HELP walks
+through port forwarding. To build the invite code the host's game may ask `api.ipify.org` for its internet address.
+The guest's game only ever receives what fog of war lets it see.
+
 ## Folders
 
 | Folder | What's in it | Change it? |
 |---|---|---|
 | `assets/` | every picture and sound the game uses | yes: replace any file with your own (same name) |
-| `data/` | unit stats (`units.json`), CPU settings (`ai.json`), colours and battle-scene timing (`style.json`), font layout (`font.json`), the Manual and editor guide text (`howto.json`, `editor_help.json`), the tutorial's dialogue (`tutorial.json`) | yes |
+| `data/` | unit stats (`units.json`), CPU settings (`ai.json`), colours and battle-scene timing (`style.json`), font layout (`font.json`), the Manual and editor guide text (`howto.json`, `editor_help.json`), the tutorial's dialogue (`tutorial.json`), the ONLINE HELP pages (`online_help.json`) | yes |
 | `maps/` | every map, one `.json` each: the built-in ones and the ones you save from the map editor (which can open and edit any of them). Share a map by sending its file; drop a friend's file in here to play it | yes: add or edit maps |
 | `data/default-maps/` | untouched copies of the built-in maps, used by RESET TO DEFAULT (and to bring back deleted ones) | only if you want to change what "default" means |
 | `pw/` | the Python code | |
@@ -40,6 +48,8 @@ What the Hard CPU has learned about you is kept in `learned.json` (Options → H
 | `cutin.py` | the battle scene when one unit attacks another |
 | `menu.py` | the pop-up menu box |
 | `play.py` | the battle screen: keys, menus, CPU turns, animations |
+| `net.py` | online play's connection: hosting, joining, invite codes, asking the router to open the port |
+| `online.py` | the PLAYER VS PLAYER, ONLINE, host lobby, join and ONLINE HELP screens |
 | `tutorial.py` | the TUTORIAL: its fixed path of lessons (only the move being taught is allowed), when each talk plays (words in `data/tutorial.json`), the talk box, and Tan's scripted turns until the hand-off |
 | `stats.py` | BATTLE STATS after a battle: a report card and turn-by-turn charts (numbers kept by `rules.py`) |
 | `title.py` | the title screen, its intro, the live battle behind it and the commanders |

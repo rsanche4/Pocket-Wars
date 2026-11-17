@@ -13,7 +13,7 @@ def empty_game(m):
     """A Game on map m with nobody on the board yet."""
     g = Game(m)
     g.units = [[] for _ in m.nodes]
-    g.next_id = 1
+    g.next_id = [1, 1]
     return g
 
 

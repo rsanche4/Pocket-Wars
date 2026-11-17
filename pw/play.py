@@ -2,7 +2,12 @@
 
 Things that take time (a CPU turn, a march, a battle scene) are written as generators ("scripts"): they yield a number
 of seconds to wait, or something with a done(now) method (a March, a CutIn), and carry on when it is finished.
+
+Every change to the board goes through apply(). Online (see net.py) the host's game is the boss: it sends the guest
+each of its own moves (only what the guest may see, plus the board as the guest may see it), checks every move the guest
+sends and rolls the dice for the guest's attacks. The other player's turn plays out here like a CPU turn (remote_turn).
 """
+from collections import deque
 import math
 import pygame
 
@@ -34,10 +39,39 @@ PHASE_NAMES = {'gather': 'GATHER', 'march': 'MARCH', 'attack': 'ATTACK', 'over':
 BANNER_SECONDS = 1.4
 
 
+def to_wire(action, result=None):
+    """A move as plain data for the network: units become their ids, and a fight carries its roll."""
+    if action[0] == 'fight':
+        a, b, x, y = action[1:5]
+        return ['fight', a, b, x.id, y.id] + ([[result.dealt, result.taken]] if result else [])
+    return list(action)
+
+
+def action_spots(action):
+    """The outposts a move happens at (to decide whether the other side gets to see it)."""
+    kind, *args = action
+    if kind in ('place', 'buy'):
+        return [args[0]]
+    if kind == 'march':
+        return [args[0], args[1][-1]]
+    if kind in ('fight', 'move_in'):
+        return args[:2]
+    return []
+
+
 def pausing(menu):
     """Mark a menu as one that pauses the battle while it's open (PAUSED and its RESIGN / QUIT questions)."""
     menu.pauses = True
     return menu
+
+
+class Arrived:
+    """Something a script can wait for: a message from the other player's game (or the connection dropping)."""
+    def __init__(self, play, what):
+        self.play, self.what = play, what
+
+    def done(self, now):
+        return self.play.lost or (self.play.inbox if self.what == 'move' else self.play.dice is not None)
 
 
 class Landed:
@@ -50,12 +84,18 @@ class Landed:
 
 
 class Play:
-    def __init__(self, app, m, settings):
-        """settings: mode ('cpu', 'hot' = two players, 'watch' = CPU vs CPU), cpu ('normal'/'hard'), fog, timer, anim,
-        and tutorial (True: the Green Commander teaches as you play, see tutorial.py)."""
-        self.app, self.settings = app, settings
+    def __init__(self, app, m, settings, link=None):
+        """settings: mode ('cpu', 'hot' = two players, 'watch' = CPU vs CPU, 'host' / 'guest' = online, see net.py),
+        cpu ('normal'/'hard'), fog, timer, anim, and tutorial (True: the Green Commander teaches as you play, see
+        tutorial.py). link: the connection to the other player's game, online."""
+        self.app, self.settings, self.link = app, settings, link
         mode = settings['mode']
-        self.bots = [mode == 'watch', mode in ('cpu', 'watch')]
+        self.role = mode if mode in ('host', 'guest') else None
+        self.me = 1 if mode == 'guest' else 0          # online: the host plays Green, the guest Tan
+        self.inbox = deque()                # online: the other player's moves, waiting to be played out
+        self.dice = None                    # online guest: the host's roll for the guest's attack
+        self.lost = False                   # online: the connection dropped
+        self.bots = [mode in ('watch', 'guest'), mode in ('cpu', 'watch', 'host')]   # (online, "bot" = your friend)
         self.levels = [settings['cpu'], settings['cpu']]
         self.speed = SPEEDS[settings['anim']]
         self.now = app.now                  # the battle's own clock starts now, paused until the first update, so
@@ -102,6 +142,74 @@ class Play:
     def allowed(self, kind, i):
         """The tutorial only lets you do the one thing it's teaching (see Tutorial.step); otherwise anything goes."""
         return not self.tutorial or self.tutorial.allows(kind, i)
+
+    def apply(self, action, by=None):
+        """Make one move on the board (see Game.do) and return what the rules return. by = the side making it (the
+        side whose turn it is, unless someone resigns). Online, the other player's game hears about it."""
+        g = self.g
+        by = g.cur if by is None else by
+        mine = self.role and by == self.me
+        spots = action_spots(action)
+        before = g.sight(1) if self.role == 'host' and g.fog else None
+        if mine and action[0] == 'resign':
+            self.link.send({'t': 'resign'})
+        result = g.do(action)
+        if self.role == 'host' and action[0] != 'resign':
+            if mine:            # the host's own move: tell the guest, as much as the guest may see of it
+                seen = not g.fog or not spots or any(i in before or i in g.sight(1) for i in spots)
+                self.link.send({'t': 'ev', 'a': to_wire(action, result) if seen else ['hidden'], 'snap': g.to_wire(1)})
+            elif action[0] == 'fight':          # the guest's attack: the host rolled the dice
+                self.link.send({'t': 'dice', 'roll': [result.dealt, result.taken]})
+            elif action[0] in ('end_turn', 'time_up'):      # the guest's turn is over: the board for the host's turn
+                self.link.send({'t': 'ev', 'a': None, 'snap': g.to_wire(1)})
+        elif self.role == 'guest' and mine and action[0] not in ('fight', 'resign'):
+            self.link.send({'t': 'move', 'a': to_wire(action, result)})
+        return result
+
+    def from_wire(self, action):
+        """A move as it came over the network, with units turned back into the board's own (None if unknown)."""
+        kind, *args = action
+        g = self.g
+        if kind == 'fight':
+            a, b, xid, yid, *roll = args
+            x = next((u for u in g.units[a] if u.id == xid), None)
+            y = next((u for u in g.units[b] if u.id == yid), None)
+            return ('fight', a, b, x, y, tuple(roll[0]) if roll else None) if x and y else None
+        if kind == 'march' and self.role == 'host':          # the host walks the guest's group its own way
+            src, path, ids = args
+            group = [u for u in g.units[src] if u.id in set(ids)]
+            return ('march', src, g.destinations(g.cur, src, group)[path[-1]], ids)
+        return tuple(action)
+
+    def on_message(self, msg):
+        """Online: something arrived from the other player's game."""
+        t, g = msg.get('t'), self.g
+        if t == 'gone':
+            if not self.ended:
+                self.connection_lost()
+        elif t == 'resign':
+            if g.phase != 'over':
+                self.resign(1 - self.me)
+        elif t == 'final':                   # the battle is over: the whole board, for BATTLE STATS
+            g.from_wire(msg['snap'], self.me)
+        elif t == 'dice':
+            self.dice = tuple(msg['roll'])
+        elif t == 'reject':                  # the host refused a move (the boards didn't match): take the host's
+            g.from_wire(msg['snap'], self.me)
+            self.script = self.wait = self.cutin = self.before = None
+            self.field.march, self.menu, self.mode = None, None, 'cursor'
+            sound.play('error')
+        elif t in ('move', 'ev'):
+            self.inbox.append(msg)
+
+    def connection_lost(self):
+        self.lost = True
+        self.script = self.wait = self.cutin = self.before = None
+        self.field.march = None
+        m = pausing(Menu('CONNECTION LOST', [{'l': 'MAIN MENU', 'f': self.app.main_menu}],
+                         sub='YOUR FRIEND LEFT, OR THE LINK DROPPED'))
+        m.on_back = self.app.main_menu
+        self.menu = m
 
     def bot(self, p=None):
         return self.bots[self.g.cur if p is None else p]
@@ -152,7 +260,9 @@ class Play:
         who = f"{SIDES[p]['name']} TURN {g.turn}"
         solo = self.bots[0] != self.bots[1]           # you against the CPU: say whose turn it is in plain words
         if self.bot(p):
-            if solo:
+            if self.role:
+                self.say_banner("FRIEND'S TURN", SIDES[p]['light'], f'{who} · WATCH THEIR MOVES')
+            elif solo:
                 self.say_banner("CPU'S TURN", SIDES[p]['light'], f'{who} · WATCH ITS MOVES')
             else:
                 self.say_banner(who, SIDES[p]['light'])
@@ -202,13 +312,13 @@ class Play:
         else:
             self.turn_banner()
         if self.bot(p):
-            self.run(self.cpu_turn())
+            self.run(self.remote_turn() if self.role else self.cpu_turn())
         elif not self.pass_screen:
             self.after_gather()
 
     def end_turn(self):
         self.menu = None
-        self.g.end_turn()
+        self.apply(('end_turn',))
         self.turn_started()
 
     def after_gather(self):
@@ -224,14 +334,14 @@ class Play:
         if self.g.turn == 1:
             self.to_attack()
             return
-        self.g.begin_march()
+        self.apply(('begin_march',))
         self.mode, self.menu = 'cursor', None
         self.say_banner('MARCH', C['phase_march'], 'STEP 2 OF 3 · ONE GROUP, ONE MOVE')
         sound.play('march_phase')
 
     def to_attack(self):
         if self.g.phase != 'attack':
-            self.g.skip_march()
+            self.apply(('skip_march',))
         self.mode, self.menu = 'cursor', None
         if not self.bot():
             if self.g.turn == 1:          # first turn is deploy only: nothing left to do, so the turn ends
@@ -242,6 +352,8 @@ class Play:
 
     def game_over(self):
         self.ended = True
+        if self.role == 'host':                     # the whole board, so the guest's BATTLE STATS add up
+            self.link.send({'t': 'final', 'snap': self.g.to_wire(full=True)})
         sound.play('victory')                       # whoever won, the fanfare and the victory music play for them
         sound.music('victory', loop=False)
         if self.memory is not None:
@@ -252,10 +364,9 @@ class Play:
 
     def over_menu(self, sel=0):
         w = self.g.winner
-        m = Menu(f"{SIDES[w]['name']} WINS!", [
-            {'l': 'BATTLE STATS', 'f': self.show_stats},
-            {'l': 'PLAY AGAIN', 'f': self.app.tutorial if self.tutorial else self.app.play_again},
-            {'l': 'MAIN MENU', 'f': self.app.main_menu}],
+        again = [] if self.role else [{'l': 'PLAY AGAIN', 'f': self.app.tutorial if self.tutorial else self.app.play_again}]
+        m = Menu(f"{SIDES[w]['name']} WINS!", [{'l': 'BATTLE STATS', 'f': self.show_stats}] + again +
+                 [{'l': 'MAIN MENU', 'f': self.app.main_menu}],
             sub=f"{SIDES[1 - w]['name']} RESIGNED" if self.g.resigned else None, win=w)
         m.sel = sel
         return m
@@ -263,13 +374,13 @@ class Play:
     def show_stats(self):
         def back():
             self.app.scene = self
-            self.menu = self.over_menu(sel=1)          # back on the victory menu, on PLAY AGAIN
+            self.menu = self.over_menu(sel=1)          # back on the victory menu, on PLAY AGAIN (or MAIN MENU)
         self.app.scene = Stats(self.app, self.g, back)
 
     def resign(self, p):
         self.script = self.wait = self.cutin = self.before = None
         self.field.march = None
-        self.g.end_game(1 - p, resigned=True)
+        self.apply(('resign', p), by=p)
         self.game_over()
 
     # ------------------------------------------------------------------ scripts (things that take time)
@@ -281,6 +392,9 @@ class Play:
         return (self.paused_at if self.paused_at is not None else now) - self.paused_total
 
     def update(self, now, dt):
+        if self.link:
+            for msg in self.link.poll():
+                self.on_message(msg)
         talking = self.tutorial and self.tutorial.talk
         if (self.menu is not None and self.menu.pauses) or talking:
             if self.paused_at is None:
@@ -327,7 +441,7 @@ class Play:
             if self.time_left <= 0:
                 sound.play('time_up')
                 self.menu = None
-                g.time_up()
+                self.apply(('time_up',))
                 self.turn_started()
 
     def cpu_turn(self):
@@ -351,16 +465,49 @@ class Play:
                 yield self.pause(.25 if action[0] != 'end_gather' else .2)
         self.end_turn()
 
+    def remote_turn(self):
+        """Online: the other player's turn. Their moves arrive one at a time and play out like a CPU's. The host checks
+        each one first; the guest takes the host's board after each (it only shows what the guest may see)."""
+        g = self.g
+        while True:
+            if not self.inbox:
+                yield Arrived(self, 'move')
+            if self.lost:
+                return
+            msg = self.inbox.popleft()
+            action = msg.get('a')
+            if self.role == 'host':
+                if not g.legal(action):
+                    self.link.send({'t': 'reject', 'snap': g.to_wire(1)})
+                    continue
+            elif action is None or action[0] == 'hidden':
+                g.from_wire(msg['snap'], self.me)
+                continue
+            if action[0] in ('end_turn', 'time_up'):
+                self.menu = None
+                self.apply((action[0],))
+                if self.role == 'guest':
+                    g.from_wire(msg['snap'], self.me)
+                self.turn_started()
+                return
+            move = self.from_wire(action)
+            if move:
+                yield from self.perform(move)
+            if self.role == 'guest':
+                g.from_wire(msg['snap'], self.me)
+            if g.phase == 'over':
+                return
+
     def perform(self, action):
         """Carry out one action, with animation. Returns what the rules return (a Fight for attacks)."""
         g, kind = self.g, action[0]
         if kind == 'place':
-            g.place(action[1])
+            self.apply(action)
             self.look(action[1])
             self.drop(action[1])
             yield self.pause(.16)
         elif kind == 'buy':
-            g.buy(*action[1:])
+            self.apply(action)
             self.set_mood(g.cur, 'happy', 1.6)
             sound.play('buy')
             yield self.pause(.2)
@@ -370,21 +517,21 @@ class Play:
             yield self.pause(.2)
             yield from self.walk(src, path, ids)
         elif kind == 'fight':
-            a, b, x, y = action[1:]
+            a, b, x, y, *dice = action[1:]
             self.look(b)
             yield self.pause(.12)
-            return (yield from self.fight(a, b, x, y))
+            return (yield from self.fight(a, b, x, y, dice[0] if dice else None))
         elif kind == 'move_in':
             yield from self.walk(action[1], [action[1], action[2]], action[3], move_in=True)
         else:
-            return g.do(action)
+            return self.apply(action)
 
     def walk(self, src, path, ids, move_in=False):
         g, dst = self.g, path[-1]
         units = [u for u in g.units[src] if u.id in ids]
         free = g.owner(dst) is None
         see = self.seen_by(src) or self.seen_by(dst)
-        if see and self.speed:
+        if see and self.speed and units:    # (online, units marching out of the fog just appear when they arrive)
             m = March(path, units, .17 if self.speed < 1 else .3, self.now)
             self.field.march = m
             kind = 'heli' if all(flies(u.type) for u in units) else 'soldier' if all(u.type == 'soldier' for u in units) else 'vehicle'
@@ -393,21 +540,26 @@ class Play:
                 sound.play('step_' + kind)
                 yield gap
             self.field.march = None
-        if move_in:
-            g.move_in(src, dst, ids)
-        else:
-            g.march(src, path, ids)
+        self.apply(('move_in', src, dst, ids) if move_in else ('march', src, path, ids))
         if see and (free or move_in) and self.seen_by(dst):
             sound.play('capture')
 
-    def fight(self, a, b, x, y):
+    def fight(self, a, b, x, y, dice=None):
+        """x (at a) attacks y (at b), with the battle scene. dice: the roll, if it was made elsewhere (online)."""
         g = self.g
         see = self.seen_by(a) or self.seen_by(b)
         scene = see and self.speed
         if scene:                  # the screen as it is before the shots: shown behind the battle scene as it slides in,
             self.before = pygame.Surface((SW, SH))     # so the map can't give the result away (an outpost going grey)
             self.draw(self.before, self.now + self.paused_total)
-        f = g.fight(a, b, x, y)
+        if self.role == 'guest' and g.cur == self.me:      # online guest: the host rolls the dice
+            self.dice = None
+            self.link.send({'t': 'move', 'a': ['fight', a, b, x.id, y.id]})
+            yield Arrived(self, 'dice')
+            if self.lost:
+                return None
+            dice = self.dice
+        f = self.apply(('fight', a, b, x, y, dice))
         self.fight_moods(f)
         if self.tutorial:
             self.tutorial.saw_fight(f, b)
@@ -737,7 +889,7 @@ class Play:
         g, p, i, mode = self.g, self.g.cur, self.cur, self.mode
         if mode == 'pick_buy':
             if g.owner(i) == p and g.count(i, 'soldier') >= UNITS[self.buy_type]['cost']:
-                g.buy(i, self.buy_type)
+                self.apply(('buy', i, self.buy_type))
                 self.set_mood(p, 'happy', 1.6)
                 sound.play('buy')
                 self.to_march()
@@ -765,7 +917,7 @@ class Play:
         elif g.phase == 'gather':
             if g.to_place > 0:
                 if g.can_place(p, i) and self.allowed('place', i):
-                    g.place(i)
+                    self.apply(('place', i))
                     self.drop(i)
                     self.after_gather()
                 else:
@@ -951,7 +1103,7 @@ class Play:
         for x, y, w, h in ((0, y0, SW, 2), (0, y1 - 2, SW, 2), (0, y0, 2, VIEW_H), (SW - 2, y0, 2, VIEW_H)):
             rect(surf, x, y, w, h, s['main'])
         dots = '.' * (int(now * 3) % 3 + 1)
-        label = f"{s['name']} (CPU) IS PLAYING"
+        label = f"{s['name']} {'' if self.role else '(CPU) '}IS PLAYING"
         w = text_width(label + '...') + 10
         x = round((SW - w) / 2)
         rect(surf, x, y0, w, 12, C['ink'])

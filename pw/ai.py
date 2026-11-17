@@ -466,6 +466,7 @@ def copy_game(g, p, full=False):
     s.units = [[Unit(u.id, u.side, u.type, u.hp) for u in us if u.side == p or see(i)] for i, us in enumerate(g.units)]
     s.seen = [set(g.seen[0]), set(g.seen[1])]
     s.used = set(g.used)
+    s.next_id = list(g.next_id)
     s.history, s.totals = [], [new_totals(), new_totals()]
     return s
 

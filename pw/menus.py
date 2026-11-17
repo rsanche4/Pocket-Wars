@@ -51,11 +51,11 @@ class ChooseMap:
             sound.play('cursor')
         elif k == 'b':
             sound.play('back')
-            self.app.title()
+            self.leave()
         elif k == 'e':
             if self.sel == len(maps):
                 sound.play('select')
-                self.app.title()
+                self.leave()
             elif map_problems(maps[self.sel]):
                 sound.play('error')
             else:
@@ -63,6 +63,12 @@ class ChooseMap:
                 S['map'] = maps[self.sel].path
                 save()
                 self.app.setup()
+
+    def leave(self):
+        if self.app.hosting:
+            self.app.online_menu()
+        else:
+            self.app.title()
 
     def update(self, now, dt):
         pass
@@ -84,7 +90,7 @@ class ChooseMap:
             text(surf, label[:16], 10, y + 1, C['ink'] if on else C['olive_dark'])
         if self.sel == len(maps):
             box(surf, 112, 20, 204, 126)
-            text(surf, 'BACK TO TITLE', 214, 80, C['ink'], 1, 'c')
+            text(surf, 'BACK' if self.app.hosting else 'BACK TO TITLE', 214, 80, C['ink'], 1, 'c')
             return
         m = maps[self.sel]                       # no picture of the map: its layout stays a surprise
         box(surf, 112, 20, 204, 126)
@@ -172,6 +178,13 @@ class Setup(ListScreen):
         self.sel = len(self.items()) - 2          # start on START BATTLE!
 
     def items(self):
+        if self.app.hosting:             # hosting online: you're GREEN against your friend; the lobby comes next
+            return [{'l': 'MODE', 'val': lambda: 'ONLINE · YOU HOST'},
+                    choice('FOG OF WAR', 'fog', ['off', 'fog', 'blackout']),
+                    choice('TURN TIMER', 'timer', [0, 30, 60, 90], {0: 'OFF', 30: '30S', 60: '60S', 90: '90S'}),
+                    choice('BATTLE SCENES', 'anim', ['full', 'fast', 'off']),
+                    {'l': 'HOST BATTLE!', 'f': self.app.host_lobby},
+                    {'l': 'BACK', 'f': self.back}]
         out = [choice('MODE', 'mode', ['cpu', 'hot'], {'cpu': 'PLAYER VS CPU', 'hot': 'PLAYER VS PLAYER'})]
         if S['mode'] == 'cpu':
             out.append(choice('CPU LEVEL', 'cpu', ['normal', 'hard']))
@@ -183,7 +196,10 @@ class Setup(ListScreen):
         return out
 
     def back(self):
-        self.app.choose_map(S['mode'])
+        if self.app.hosting:
+            self.app.host_setup()
+        else:
+            self.app.choose_map(S['mode'])
 
 
 class Options(ListScreen):

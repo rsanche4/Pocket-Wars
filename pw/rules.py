@@ -76,9 +76,11 @@ class Game:
         self.to_place = 0
         self.bought = False
         self.used = set()               # ids of units that attacked this turn
+        self.cleared = None             # (a, b): the last attack from a emptied b, so units at a may move in
         self.winner = None
         self.resigned = False
-        self.next_id = 1
+        self.next_id = [1, 1]           # each side numbers its own units (Green's ids are even, Tan's odd), so an online
+                                        # guest can name its new units the same way the host does
         self.totals = [new_totals(), new_totals()]     # running counts for the end-of-battle stats
         self.history = []               # a snapshot of both sides after every turn (see snapshot())
         for p in (0, 1):
@@ -186,8 +188,8 @@ class Game:
 
     # ---------- changing the board ----------
     def add(self, i, p, t):
-        self.units[i].append(Unit(self.next_id, p, t, UNITS[t]['hp']))
-        self.next_id += 1
+        self.units[i].append(Unit(self.next_id[p] * 2 + p, p, t, UNITS[t]['hp']))
+        self.next_id[p] += 1
 
     def take(self, i, ids):
         out = [u for u in self.units[i] if u.id in ids]
@@ -198,7 +200,7 @@ class Game:
         self.turn += 1
         p = self.cur
         barracks = sum(1 for i, nd in enumerate(self.map.nodes) if nd.barracks and self.owner(i) == p)
-        self.phase, self.bought, self.used = 'gather', False, set()
+        self.phase, self.bought, self.used, self.cleared = 'gather', False, set(), None
         self.to_place = 1 + barracks
         self.update_seen()
 
@@ -233,12 +235,16 @@ class Game:
     def skip_march(self):
         self.phase = 'attack'
 
-    def fight(self, a, b, x, y):
-        """Unit x (at a) attacks unit y (at b). Both shoot at once; damage is random within each unit's range."""
+    def fight(self, a, b, x, y, dice=None):
+        """Unit x (at a) attacks unit y (at b). Both shoot at once; damage is random within each unit's range.
+        dice = (dealt, taken) already rolled (online, the host rolls and the guest's copy uses the same numbers)."""
         lo, hi = damage_range(x.type, y.type)
         back = can_hit(y.type, x.type)
-        dealt = random.randint(lo, hi)
-        taken = random.randint(*damage_range(y.type, x.type)) if back else 0
+        if dice:
+            dealt, taken = dice
+        else:
+            dealt = random.randint(lo, hi)
+            taken = random.randint(*damage_range(y.type, x.type)) if back else 0
         hx, hy = x.hp, y.hp
         self.used.add(x.id)
         y.hp -= dealt
@@ -254,6 +260,7 @@ class Game:
                 break
         if result == 'ok' and not self.units[b] and self.units[a] and self.move_in_choices(a, b):
             result = 'cleared'
+        self.cleared = (a, b) if result == 'cleared' else None
         return Fight(x, y, dealt, taken, back, hx, hy, result)
 
     def count_fight(self, x, y, dealt, taken):
@@ -276,6 +283,7 @@ class Game:
 
     def move_in(self, a, b, ids):
         self.note_capture(b, self.cur)
+        self.cleared = None
         moving = self.take(a, ids)
         self.units[b] += moving
         return moving
@@ -294,13 +302,94 @@ class Game:
         self.end_turn()
 
     def do(self, action):
-        """Carry out an action from a CPU player (see ai.py): ('place', i), ('buy', i, type), ('end_gather',),
-        ('march', src, path, ids), ('skip_march',), ('fight', a, b, x, y) or ('move_in', a, b, ids)."""
+        """Carry out one move: ('place', i), ('buy', i, type), ('end_gather',), ('begin_march',),
+        ('march', src, path, ids), ('skip_march',), ('fight', a, b, x, y[, dice]), ('move_in', a, b, ids),
+        ('end_turn',), ('time_up',) or ('resign', side). Returns what the rules return (a Fight for attacks)."""
         kind, *args = action
         if kind == 'end_gather':
             self.to_place = 0
             return None
+        if kind == 'resign':
+            return self.end_game(1 - args[0], resigned=True)
         return getattr(self, kind)(*args)
+
+    def legal(self, action):
+        """Is this move allowed right now for the side whose turn it is? (The online host checks every move its
+        guest sends.) Fights name units by id here: ('fight', a, b, x_id, y_id)."""
+        p, n, ph = self.cur, len(self.units), self.phase
+        kind, *args = action
+        ok_spot = lambda i: isinstance(i, int) and 0 <= i < n
+        try:
+            if ph == 'over':
+                return False
+            if kind == 'place':
+                return ph == 'gather' and self.to_place > 0 and ok_spot(args[0]) and self.can_place(p, args[0])
+            if kind == 'end_gather':
+                return ph == 'gather'
+            if kind == 'buy':
+                i, t = args
+                return (ph == 'gather' and not self.bought and ok_spot(i) and self.owner(i) == p and t in UNITS
+                        and UNITS[t]['cost'] > 0 and self.count(i, 'soldier') >= UNITS[t]['cost'])
+            if kind == 'begin_march':
+                return ph == 'gather' and self.turn > 1
+            if kind == 'skip_march':
+                return ph in ('gather', 'march')
+            if kind == 'march':
+                src, path, ids = args
+                group = [u for u in self.movable(src) if u.id in set(ids)] if ok_spot(src) and self.owner(src) == p else []
+                return ph == 'march' and len(group) == len(set(ids)) > 0 and path[-1] in self.destinations(p, src, group)
+            if kind == 'fight':
+                a, b, xid, yid = args
+                x = next((u for u in self.units[a] if u.id == xid), None) if ok_spot(a) else None
+                y = next((u for u in self.units[b] if u.id == yid), None) if ok_spot(b) else None
+                return (ph == 'attack' and self.turn > 1 and b in self.adj[a] and x is not None and y is not None and
+                        x.side == p and y.side == 1 - p and x.type != 'hq' and x.id not in self.used and can_hit(x.type, y.type))
+            if kind == 'move_in':
+                a, b, ids = args
+                can = {u.id for u in self.move_in_choices(a, b)} if self.cleared == (a, b) else set()
+                return ph == 'attack' and bool(ids) and set(ids) <= can
+            if kind in ('end_turn', 'time_up'):
+                return True
+        except (TypeError, ValueError, IndexError, KeyError):
+            return False
+        return False
+
+    # ---------- online: the board as one side may see it ----------
+    def to_wire(self, viewer=None, full=False):
+        """The board as plain data (for the online guest). viewer = the side it's for: with fog it only holds the
+        units at outposts that side can see. full=True: everything, stats included (sent when the battle is over)."""
+        see = set(range(len(self.units))) if full or not self.fog or viewer is None else self.sight(viewer)
+        units = [[[u.id, u.side, u.type, u.hp] for u in us] if i in see else [] for i, us in enumerate(self.units)]
+        shown = {u[0] for us in units for u in us}
+        out = {'units': units, 'turn': self.turn, 'cur': self.cur, 'phase': self.phase, 'to_place': self.to_place,
+               'bought': self.bought, 'used': sorted(self.used & shown), 'winner': self.winner, 'resigned': self.resigned,
+               'cleared': self.cleared,      # (the other side's unit count stays private)
+               'next_id': [n if full or viewer in (None, k) else 0 for k, n in enumerate(self.next_id)]}
+        if self.blackout and viewer is not None:
+            out['seen'] = sorted(self.seen[viewer])
+        if full:
+            out['totals'], out['history'] = self.totals, self.history
+        return out
+
+    def from_wire(self, d, viewer):
+        """Take the board from to_wire (the guest's copy). Units already on the board stay the same objects."""
+        old = {u.id: u for us in self.units for u in us}
+        self.units = []
+        for us in d['units']:
+            row = []
+            for uid, side, t, hp in us:
+                u = old.get(uid) or Unit(uid, side, t, hp)
+                u.side, u.type, u.hp = side, t, hp
+                row.append(u)
+            self.units.append(row)
+        self.turn, self.cur, self.phase, self.to_place = d['turn'], d['cur'], d['phase'], d['to_place']
+        self.bought, self.used, self.winner, self.resigned = d['bought'], set(d['used']), d['winner'], d['resigned']
+        self.cleared = tuple(d['cleared']) if d['cleared'] else None
+        self.next_id = list(d['next_id'])
+        if 'seen' in d:
+            self.seen[viewer] = set(d['seen'])
+        if 'totals' in d:
+            self.totals, self.history = d['totals'], [(t, sides) for t, sides in d['history']]
 
 
 def new_totals():
