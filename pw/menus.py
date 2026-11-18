@@ -1,7 +1,7 @@
 """Menu screens: choose a battlefield, battle setup, and options."""
 import pygame
 
-from . import sound, learn
+from . import sound
 from .data import map_problems, map_info
 from .gfx import C, SW, SH, THEMES, rect, box, text, wrap
 from .settings import S, save
@@ -208,16 +208,6 @@ class Setup(ListScreen):
 class Options(ListScreen):
     title_text = 'OPTIONS'
 
-    def __init__(self, app):
-        super().__init__(app)
-        self.remembered = learn.load()['games']      # battles Hard remembers against you (learn.py)
-        self.erase_armed = False
-
-    def key(self, k):
-        if k != 'e':
-            self.erase_armed = False                 # moving away cancels "ENTER AGAIN TO ERASE"
-        super().key(k)
-
     def items(self):
         flip = lambda key: {'l': key[0], 'val': lambda: '◀ ON ▶' if S[key[1]] else '◀ OFF ▶',
                             'adj': lambda d: S.__setitem__(key[1], not S[key[1]])}
@@ -228,22 +218,10 @@ class Options(ListScreen):
             S['fullscreen'] = not S['fullscreen']
             self.app.apply_fullscreen()
 
-        def memory():
-            if self.erase_armed:
-                return 'ENTER AGAIN TO ERASE'
-            n = self.remembered
-            return f"{n} BATTLE{'' if n == 1 else 'S'}" if n else 'EMPTY'
-
-        def erase():                        # ENTER once arms it, ENTER again makes Hard forget
-            if self.erase_armed:
-                learn.forget()
-                self.remembered = 0
-            self.erase_armed = not self.erase_armed
         return [flip(('SOUND EFFECTS', 'sound')), volume('EFFECTS VOLUME', 'sfx_volume'),
                 flip(('MUSIC', 'music')), volume('MUSIC VOLUME', 'music_volume'),
                 choice('BATTLE SCENES', 'anim', ['full', 'fast', 'off']),
                 {'l': 'FULL SCREEN', 'val': lambda: '◀ ON ▶' if S['fullscreen'] else '◀ OFF ▶', 'adj': toggle_full},
-                {'l': "HARD'S MEMORY", 'val': memory, 'f': erase},
                 {'l': 'LANGUAGE', 'val': lambda: f"◀ {LANGUAGES[language()]} ▶",
                  'adj': lambda d: S.__setitem__('language', cycle(list(LANGUAGES), language(), d))},
                 {'l': 'BACK', 'f': self.back}]

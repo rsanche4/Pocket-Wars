@@ -1,10 +1,7 @@
 """Battle stats, shown from the victory menu: a report card for both sides, then charts of how the battle went turn
-by turn. The numbers come from the rules (Game.totals and Game.history), so they work for every kind of game.
-After a battle against Hard there is one more page: what Hard has learned about you (learn.py)."""
+by turn. The numbers come from the rules (Game.totals and Game.history), so they work for every kind of game."""
 import pygame
 
-from . import learn
-from .data import UNITS
 from .menu import Pages
 from .gfx import C, SIDES, SW, rect, text, text_width, wrap, blit, unit_image
 
@@ -29,6 +26,7 @@ CHARTS = [
     ('ARMY SIZE', 'units', 'Units on the board after each turn (no HQ).'),
     ('ARMY STRENGTH', 'strength', 'Hit points of all units: vehicles count a lot.'),
     ('TERRITORY', 'outposts', 'Outposts held after each turn.'),
+    ('BARRACKS HELD', 'barracks', 'Barracks held after each turn: each one is one more soldier every turn.'),
     ('DAMAGE DEALT', 'damage', 'All damage dealt so far, return fire included.'),
     ('HQ HEALTH', 'hq', 'How much each HQ had left.'),
 ]
@@ -45,8 +43,7 @@ class Stats(Pages):
     def __init__(self, app, game, on_exit):
         self.app, self.g, self.on_exit = app, game, on_exit
         self.page, self.opened = 0, None
-        self.memory = getattr(game, 'learning', {}).get('memory')      # set after a battle against Hard
-        self.pages = ['report'] + CHARTS + (['memory'] if self.memory else [])
+        self.pages = ['report'] + CHARTS
 
     def page_changed(self):
         self.opened = None              # replay the page's animation
@@ -57,12 +54,10 @@ class Stats(Pages):
 
     def draw(self, surf, now):
         page = self.pages[self.page]
-        self.frame(surf, {'report': 'BATTLE REPORT', 'memory': "HARD'S MEMORY"}.get(page) or page[0])
+        self.frame(surf, 'BATTLE REPORT' if page == 'report' else page[0])
         t = now - (self.opened if self.opened is not None else now)
         if page == 'report':
             self.draw_report(surf, t)
-        elif page == 'memory':
-            self.draw_memory(surf)
         else:
             self.draw_chart(surf, page, t)
 
@@ -112,49 +107,23 @@ class Stats(Pages):
             img = unit_image('icons', top, p)
             blit(surf, img, x - text_width(n) - 4 - img.get_width(), y + 7 - img.get_height())
 
-    # ------------------------------------------------------------------ what Hard has learned (learn.py)
-    def draw_memory(self, surf):
-        mem, style = self.memory, self.g.learning['style']
-        you = SIDES[self.g.learning['you']]
-        text(surf, f"BATTLES VS HARD: {mem['games']}   YOU WON {mem['you_won']}, HARD WON {mem['games'] - mem['you_won']}",
-             SW / 2, 30, C['ink'], 1, 'c')
-        text(surf, 'HARD STYLE', 18, 44, C['dim'])
-        text(surf, 'BEAT YOU', 222, 44, C['dim'], 1, 'r')
-        text(surf, 'LOST', 296, 44, C['dim'], 1, 'r')
-        rect(surf, 14, 52, SW - 28, 1, C['ink'])
-        y = 56
-        for name, rec in mem['styles'].items():
-            if name == style:                                    # the style Hard played this battle
-                rect(surf, 14, y - 2, SW - 28, 11, C['highlight'])
-            text(surf, name + ('  (THIS BATTLE)' if name == style else ''), 18, y, C['ink'])
-            text(surf, rec['won'], 222, y, C['ink'], 1, 'r')
-            text(surf, rec['lost'], 296, y, C['ink'], 1, 'r')
-            y += 11
-        y += 6
-        fav = learn.favourite(mem)
-        if fav:
-            text(surf, 'YOUR FAVOURITE VEHICLE:', 18, y, C['ink'])
-            img = unit_image('icons', fav, self.g.learning['you'])
-            blit(surf, img, 162, y + 7 - img.get_height())
-            text(surf, UNITS[fav]['name'], 166 + img.get_width(), y, you['dark'])
-            y += 11
-        for line in wrap('Hard plays the styles that beat you more often, and expects the vehicles you like to build.', 48):
-            text(surf, line, 18, y, C['dim'])
-            y += 9
-
     # ------------------------------------------------------------------ charts
     def draw_chart(self, surf, page, t):
         _, key, caption = page          # (the title is drawn by the page frame)
         g = self.g
         turns = [turn for turn, _ in g.history]
-        series = [[s[p][key] for _, s in g.history] for p in (0, 1)]
+        series = [[s[p].get(key, 0) for _, s in g.history] for p in (0, 1)]     # (0: an older online host's game)
         rect(surf, CX - 1, CY - 1, CW + 2, CH + 2, C['ink'])
         rect(surf, CX, CY, CW, CH, C['background'])
         x0, x1, y0, y1 = CX + 30, CX + CW - 10, CY + 10, CY + CH - 16
         top = max([1] + series[0] + series[1])
-        step = next((n for n in NICE if n * 4 >= top), NICE[-1])
-        for k in range(5):                                       # grid lines and their numbers
-            yy = round(y1 - (y1 - y0) * k / 4)
+        step, rows = next((n for n in NICE if n * 4 >= top), NICE[-1]), 4
+        if key == 'barracks':                                    # one line per barracks on the map, up to all of them
+            most = sum(1 for nd in g.map.nodes if nd.barracks)
+            if top <= most <= 8:
+                step, rows = 1, most
+        for k in range(rows + 1):                                # grid lines and their numbers
+            yy = round(y1 - (y1 - y0) * k / rows)
             rect(surf, x0, yy, x1 - x0 + 1, 1, C['olive_dark'] if k else C['dim'])
             text(surf, step * k, x0 - 4, yy - 3, C['grey'], 1, 'r')
         n = len(turns)
@@ -164,7 +133,7 @@ class Stats(Pages):
         shown = max(1, round(n * ramp(t, 1.2)))                  # the lines draw themselves in
         w = g.winner if g.winner is not None else 0
         for p in (1 - w, w):                                     # the winner's line on top
-            pts = [(round(xs[i]), round(y1 - (y1 - y0) * series[p][i] / (step * 4))) for i in range(shown)]
+            pts = [(round(xs[i]), round(y1 - (y1 - y0) * series[p][i] / (step * rows))) for i in range(shown)]
             color = SIDES[p]['light']
             if len(pts) > 1:
                 pygame.draw.lines(surf, color, False, pts, 2)

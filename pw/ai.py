@@ -4,8 +4,7 @@ turn(game, level) is a generator: it yields one action at a time (see Game.do) a
 so the game screen can animate each action and tests can run thousands of games without any drawing.
 
 Normal CPU: simple rules of thumb.
-Hard CPU:   scores every move (weights in data/ai.json), thinks ahead on private copies of the board, plays one of
-            several styles, and against you uses what it has learned about you (learn.py).
+Hard CPU:   scores every move (weights in data/ai.json) and thinks ahead on private copies of the board.
 """
 import random
 
@@ -280,14 +279,11 @@ def attack_score(g, a, b, x, y, lethal):
 
 
 def hard_want(g, p):
-    """Vehicle types, most wanted first. Against a player it has learned about, Hard also expects the vehicles
-    that player usually builds (so it counters them before seeing them)."""
+    """Vehicle types, most wanted first: each one counters what the enemy has."""
     vs = visible(g, p)
-    habits = getattr(g, 'habits', {}).get(1 - p)
-    expect = (lambda t: habits['mix'].get(t, 0) * AI['learn_counter']) if habits else (lambda t: 0)
     # enemy vehicles next to our HQ count three times: a raid there gets answered with the right units
     near = lambda t: sum(u.type == t for j in g.adj[g.hq[p]] for u in g.units[j] if u.side != p) if g.hq[p] >= 0 else 0
-    e = lambda t: g.vehicles(1 - p, t, vs) + expect(t) + 2 * near(t)
+    e = lambda t: g.vehicles(1 - p, t, vs) + 2 * near(t)
     m = lambda t: g.vehicles(p, t)
     score = {'halftrack': W['bJ'] + e('helicopter') - .4 * e('tank') - .25 * m('halftrack'),
              'tank': W['bT'] + .5 * e('halftrack') + .1 * e('soldier') - e('helicopter') - .25 * m('tank'),
@@ -333,21 +329,9 @@ def hard_place(g, p, th, plan):
     return pick[1] if pick and pick[0] > W['front'] else plan['stage']
 
 
-def habit_buy(g, p, habits):
-    """What a learned-about player would probably build now (used when Hard imagines their turn)."""
-    if random.random() > habits['rate']:
-        return None
-    t = random.choices(list(habits['mix']), weights=list(habits['mix'].values()))[0]
-    spots = [i for i in g.mine(p) if g.count(i, 'soldier') >= cost(t)]
-    return (best(spots, enemy_dist(g, p, True)), t) if spots else None
-
-
 def hard_buy(g, p):
     if g.bought:
         return None
-    habits = getattr(g, 'habits', {}).get(p)
-    if habits:
-        return habit_buy(g, p, habits)
     dg, order = enemy_dist(g, p, True), hard_want(g, p)
     for t in order:
         spots = [i for i in g.mine(p) if g.count(i, 'soldier') >= cost(t)]
@@ -589,17 +573,10 @@ def look_ahead(g, p):
     return best_plan
 
 
-def style_of(g, side):
-    """The style a side's Hard plays (None = balanced; a human is imagined as balanced)."""
-    return (getattr(g, 'styles', None) or [None, None])[side]
-
-
 def enemy_reply(s, p):
-    """The enemy's next turn on a copy, in the enemy's own style."""
+    """The enemy's next turn on a copy (Hard imagines the enemy plays the way it does)."""
     s.end_turn()
-    use_style(style_of(s, 1 - p))
     run(s, hard_turn(s, 1 - p, think=False))
-    use_style(style_of(s, p))
 
 
 def finish_and_reply(s, p):
@@ -610,27 +587,8 @@ def finish_and_reply(s, p):
     return evaluate(s, p)
 
 
-# ===================================================================== Hard CPU: styles
-STYLES = AI['styles']
-BASE_W, BASE_E = dict(W), dict(E)
-
-
-def use_style(name):
-    """Switch Hard to one of the styles in data/ai.json (None = balanced)."""
-    style = STYLES.get(name) or {}
-    W.clear()
-    W.update(BASE_W, **style.get('weights', {}))
-    E.clear()
-    E.update(BASE_E, **style.get('eval', {}))
-
-
 def turn(g, level):
-    """g.styles (optional) = the style each side's Hard plays; g.habits (optional) = {side: what Hard learned about
-    that player}, set by the battle screen from learn.py."""
-    if level != 'hard':
-        return normal_turn(g, g.cur)
-    use_style(style_of(g, g.cur))
-    return hard_turn(g, g.cur)
+    return hard_turn(g, g.cur) if level == 'hard' else normal_turn(g, g.cur)
 
 
 def play_turn(g, level):

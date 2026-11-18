@@ -15,13 +15,13 @@ Keys: ARROWS move, ENTER (or Z, SPACE) select, ESC (or X) back, F11 full screen.
 ## What's in the game
 
 - **Tutorial**: the Green Commander teaches the game on Boot Camp, one step at a time.
-- **Player vs CPU**: Normal or Hard (Hard learns how you play, kept in `learned.json`).
+- **Player vs CPU**: Normal or Hard (Hard tries its best moves on copies of the board, your reply included, before choosing).
 - **Player vs Player**: HOTSEAT on one computer, or ONLINE on two (see below).
 - **Recordings**: turn RECORD on in the battle setup, then watch battles back from RECORDINGS.
 - **Manual**: how to play, page by page.
 - **Map editor**: build your own maps, or let GENERATE MAP make one. With BALANCE: FAIR it plays quick CPU-vs-CPU
   test games first, so neither side is favoured (RANDOM skips that and can give lopsided, more surprising maps).
-- **Options**: sound, music, full screen, Hard's memory, and LANGUAGE (English or Spanish).
+- **Options**: sound, music, full screen, and LANGUAGE (English or Spanish).
 
 Your settings are kept in `settings.json` (delete it to go back to the defaults).
 
@@ -52,7 +52,7 @@ ONLINE HELP (in the game) explains port forwarding step by step. To make the inv
 | File | Job |
 |---|---|
 | `rules.py` | the rules: one battle's state and every move. No drawing |
-| `ai.py`, `learn.py` | the CPU players, and what Hard remembers about you |
+| `ai.py` | the CPU players |
 | `play.py` | the battle screen: keys, menus, turns, animations |
 | `field.py`, `world.py` | drawing the battlefield and building its ground |
 | `cutin.py` | the battle scene when one unit attacks another |

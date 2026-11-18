@@ -11,7 +11,7 @@ from collections import deque
 import math
 import pygame
 
-from . import ai, sound, learn
+from . import ai, sound
 from .stats import Stats
 from .data import UNITS, ORDER
 from .rules import Game, can_hit, damage_range, flies, encode_move
@@ -115,17 +115,8 @@ class Play:
         self.moods = [None, None]
         self.time_left = 0
         self.ended = False
-        self.memory = None
         self.paused_total, self.paused_at = 0, app.now   # the battle's clock stops while the PAUSED menu is open
         self.tutorial = Tutorial(self) if settings.get('tutorial') else None
-        if mode == 'cpu' and settings['cpu'] == 'hard':      # Hard learns from games against you (learn.py)
-            you = self.human_side()
-            self.memory = learn.load()
-            self.g.learning = {'you': you, 'style': learn.pick_style(self.memory)}
-            self.g.styles = [None, None]
-            self.g.styles[1 - you] = self.g.learning['style']
-            habits = learn.habits(self.memory)
-            self.g.habits = {you: habits} if habits else {}
         sound.music('battle')
         self.turn_started()
 
@@ -373,10 +364,6 @@ class Play:
             self.link.send({'t': 'final', 'snap': self.g.to_wire(full=True)})
         sound.play('victory')                       # whoever won, the fanfare and the victory music play for them
         sound.music('victory', loop=False)
-        if self.memory is not None:
-            learn.record(self.memory, self.g, self.g.learning['you'], self.g.learning['style'])
-            learn.save(self.memory)
-            self.g.learning['memory'] = self.memory
         self.menu = self.over_menu()
 
     def over_menu(self, back=False):

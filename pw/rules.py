@@ -143,8 +143,9 @@ class Game:
         """Remember how both sides stand right now (taken at the start and after every turn)."""
         def side(p):
             army = [u for us in self.units for u in us if u.side == p and u.type != 'hq']
-            q = self.hq_unit(p)
-            return {'units': len(army), 'strength': sum(u.hp for u in army), 'outposts': len(self.mine(p)),
+            q, held = self.hq_unit(p), self.mine(p)
+            return {'units': len(army), 'strength': sum(u.hp for u in army), 'outposts': len(held),
+                    'barracks': sum(1 for i in held if self.map.nodes[i].barracks),
                     'damage': self.totals[p]['damage'], 'hq': q.hp if q else 0}
         self.history.append((self.turn, [side(0), side(1)]))
 
