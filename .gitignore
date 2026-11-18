@@ -1,0 +1,5 @@
+# Your own battles: keep them on your computer
+recordings/
+
+# Python compiled cache
+__pycache__/
